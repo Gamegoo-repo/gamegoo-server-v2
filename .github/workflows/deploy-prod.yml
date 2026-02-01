@@ -88,36 +88,30 @@ jobs:
       - name: 홈서버(맥미니)에 배포 (Cloudflare SSH)
         env:
           DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }}
-          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          CF_SERVICE_TOKEN_ID: ${{ secrets.CF_SERVICE_TOKEN_ID }}
+          CF_SERVICE_TOKEN_SECRET: ${{ secrets.CF_SERVICE_TOKEN_SECRET }}
           SSH_HOST: ssh.gamegoo.co.kr
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         shell: bash
         run: |
-          set -euo pipefail
-
-          # 1) SSH key 준비
+          # SSH key 준비
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # 2) known_hosts 등록(호스트키 확인 오류 방지)
-          ssh-keyscan -p 22 "${SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          # 3) Cloudflare Access(Zero Trust) 경유 SSH 접속을 위한 ProxyCommand
-          PROXY_CMD="/usr/local/bin/cloudflared access ssh --hostname %h --id ${CF_ACCESS_CLIENT_ID} --secret ${CF_ACCESS_CLIENT_SECRET}"
+          # Cloudflare Access(Zero Trust) 경유 SSH 접속을 위한 ProxyCommand
+          PROXY_CMD="/usr/local/bin/cloudflared access ssh --hostname %h --id ${CF_SERVICE_TOKEN_ID} --secret ${CF_SERVICE_TOKEN_SECRET}"
 
-          # 4) 원격 배포 실행
+          # 원격 배포 실행
           ssh -i ~/.ssh/id_rsa \
             -o ProxyCommand="${PROXY_CMD}" \
-            -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=3 \
             "${SSH_USER}@${SSH_HOST}" \
             "bash -s" <<EOF
-          set -euo pipefail
 
           DOCKER_IMAGE="${DOCKER_IMAGE}"
 
