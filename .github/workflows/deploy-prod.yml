@@ -101,8 +101,8 @@ jobs:
           echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          cat CF_ACCESS_CLIENT_ID
-          cat CF_ACCESS_CLIENT_SECRET
+          cat ${CF_ACCESS_CLIENT_ID}
+          cat ${CF_ACCESS_CLIENT_SECRET}
 
           # ssh 접속
           ssh -i ~/.ssh/id_rsa \
