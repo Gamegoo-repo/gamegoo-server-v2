@@ -28,6 +28,8 @@ jobs:
       GMAIL_PWD: ${{ secrets.GMAIL_PWD }}
       RIOT_API: ${{ secrets.RIOT_API }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      DISCORD_MONITORING_WEBHOOK_URL_PROD: ${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_PROD }}
+      DISCORD_SCHEDULER_WEBHOOK: ${{ secrets.DISCORD_SCHEDULER_WEBHOOK }}
       SOCKET_SERVER_URL: ${{ secrets.SOCKET_SERVER_URL }}
       FRONT_URL: ${{ secrets.FRONT_URL }}
       CLIENT_ID: ${{ secrets.CLIENT_ID }}
