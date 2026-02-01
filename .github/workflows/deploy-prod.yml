@@ -87,9 +87,11 @@ jobs:
         env:
           DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }}
         run: |
-          ssh -tt \
-            -o StrictHostKeyChecking=no \
-            -o ProxyCommand="cloudflared access ssh --hostname ssh.gamegoo.co.kr --url ssh://localhost:22 --listen localhost:2222" \
+          ssh -o StrictHostKeyChecking=no \
+            -o ProxyCommand="cloudflared access ssh \
+            --hostname ssh.gamegoo.co.kr \
+            --header 'CF-Access-Client-Id=${CF_ACCESS_CLIENT_ID}' \
+            --header 'CF-Access-Client-Secret=${CF_ACCESS_CLIENT_SECRET}'" \
             macmini@ssh.gamegoo.co.kr << 'EOF'
             docker pull $DOCKER_IMAGE
             docker rm -f gamegoo-api-v2-prod || true
