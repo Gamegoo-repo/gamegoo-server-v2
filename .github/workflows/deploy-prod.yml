@@ -88,8 +88,6 @@ jobs:
       - name: 홈서버(맥미니)에 배포 (Cloudflare SSH)
         env:
           DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }}
-          CF_SERVICE_TOKEN_ID: ${{ secrets.CF_SERVICE_TOKEN_ID }}
-          CF_SERVICE_TOKEN_SECRET: ${{ secrets.CF_SERVICE_TOKEN_SECRET }}
           SSH_HOST: ssh.gamegoo.co.kr
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
