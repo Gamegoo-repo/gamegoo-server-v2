@@ -102,7 +102,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
 
           # ssh 접속
-          ssh -i ~/.ssh/id_rsa \
+          ssh -tt -i ~/.ssh/id_rsa \
           -o StrictHostKeyChecking=no \
           -o UserKnownHostsFile=/dev/null \
           -o ProxyCommand="cloudflared access ssh --hostname %h --id ${CF_ACCESS_CLIENT_ID} --secret ${CF_ACCESS_CLIENT_SECRET}" \
