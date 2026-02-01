@@ -89,12 +89,13 @@ jobs:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
-          ssh -tt -o StrictHostKeyChecking=no \
-            -o ProxyCommand="cloudflared access ssh \
-              --hostname ssh.gamegoo.co.kr \
-              --header 'CF-Access-Client-Id=${CF_ACCESS_CLIENT_ID}' \
-              --header 'CF-Access-Client-Secret=${CF_ACCESS_CLIENT_SECRET}'" \
-            macmini@ssh.gamegoo.co.kr << EOF
+          cloudflared access tcp \
+            --hostname ssh.gamegoo.co.kr \
+            --url localhost:2222 \
+
+          sleep 5
+
+          ssh -p 2222 -o StrictHostKeyChecking=no \ macmini@localhost << EOF
             docker pull ${DOCKER_IMAGE}
             docker rm -f gamegoo-api-v2-prod || true
             docker run -d \
