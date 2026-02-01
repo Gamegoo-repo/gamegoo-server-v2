@@ -101,9 +101,11 @@ jobs:
           echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
+          cat
+
           # ssh 접속
           ssh -i ~/.ssh/id_rsa \
-          -o ProxyCommand='cloudflared access ssh --hostname %h --id ${CF_SERVICE_TOKEN_ID} --secret ${CF_SERVICE_TOKEN_SECRET}' \
+          -o ProxyCommand='cloudflared access ssh --hostname %h --id ${CF_SERVICE_CLIENT_ID} --secret ${CF_SERVICE_CLIENT_SECRET}' \
           macmini@ssh.gamegoo.co.kr
 
           DOCKER_IMAGE="${DOCKER_IMAGE}"
