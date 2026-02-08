@@ -11,6 +11,8 @@ import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -66,6 +68,18 @@ public class NotificationFacadeService {
         Slice<Notification> notificationSlice = notificationService.getNotificationSlice(member, cursorId);
 
         return NotificationCursorListResponse.of(notificationSlice);
+    }
+
+    /**
+     * 여러 알림 읽음 처리 Facade 메소드
+     * @param member       회원
+     * @param notificationIds 알림 id 리스트
+     * @return 처리 결과 메시지
+     */
+    @Transactional
+    public String readMultipleNotifications(Member member, List<Long> notificationIds) {
+        notificationService.readMultipleNotifications(member, notificationIds);
+        return "선택한 알림들이 읽음 처리되었습니다.";
     }
 
 }

@@ -8,6 +8,7 @@ import com.gamegoo.gamegoo_v2.core.common.annotation.ValidPage;
 import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
 import com.gamegoo.gamegoo_v2.notification.dto.NotificationCursorListResponse;
+import com.gamegoo.gamegoo_v2.notification.dto.NotificationMultiReadRequest;
 import com.gamegoo.gamegoo_v2.notification.dto.NotificationPageListResponse;
 import com.gamegoo.gamegoo_v2.notification.dto.ReadNotificationResponse;
 import com.gamegoo.gamegoo_v2.notification.service.NotificationFacadeService;
@@ -19,6 +20,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -82,4 +84,12 @@ public class NotificationController {
         return ApiResponse.ok(notificationFacadeService.getNotificationCursorList(member, cursor));
     }
 
+    @Operation(summary = "여러 알림 읽음 처리 API", description = "여러 알림을 한 번에 읽음 처리하는 API 입니다.")
+    @PatchMapping
+    @ApiErrorCodes({ErrorCode.NOTIFICATION_NOT_FOUND})
+    public ApiResponse<String> readMultipleNotifications(
+            @RequestBody NotificationMultiReadRequest notificationMultiReadRequest,
+            @AuthMember Member member) {
+        return ApiResponse.ok(notificationFacadeService.readMultipleNotifications(member, notificationMultiReadRequest.getNotificationIds()));
+    }
 }
