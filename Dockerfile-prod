@@ -1,18 +1,30 @@
+# [1] 빌드 스테이지
+FROM gradle:8.11.1-jdk17 AS build
+
+WORKDIR /app
+
+# Gradle 라이브러리 설치를 위한 초기 세팅
+COPY build.gradle settings.gradle ./
+RUN gradle dependencies --no-daemon
+
+# 소스코드 복사 후 빌드
+COPY . /app
+RUN gradle clean build --no-daemon
+
+# [2] 런타임 스테이지
 FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
+# 1) 컨테이너 시간대 KST 설정
 ENV TZ=Asia/Seoul
 RUN apt-get update && apt-get install -y tzdata \
- && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
- && echo $TZ > /etc/timezone \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# CI에서 빌드된 JAR만 복사
-COPY build/libs/*SNAPSHOT.jar app.jar
+# 2) 빌드 결과 JAR 복사
+COPY --from=build /app/build/libs/*SNAPSHOT.jar /app/gamegoov2.jar
 
-EXPOSE 8080
-
-ENTRYPOINT ["sh", "-c", "java \
-  -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-dev} \
-  -jar /app/app.jar"]
+# 3) 실행
+CMD ["java", "-Dspring.profiles.active=prod", "-jar", "gamegoov2.jar"]
