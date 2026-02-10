@@ -302,6 +302,26 @@ public class NotificationService {
     }
 
     /**
+     * 여러 알림 읽음 처리 메소드
+     * @param member       회원
+     * @param notificationIds 읽음 처리할 알림 id 리스트
+     */
+    @Transactional
+    public void readMultipleNotifications(Member member, List<Long> notificationIds) {
+        // 각 notificationId에 해당하는 알림 존재 여부 검증
+        for (Long notificationId : notificationIds) {
+            validateNotificationExists(member, notificationId);
+        }
+
+        // 알림 일괄 읽음 처리
+        List<Notification> notifications = notificationRepository.findAllById(notificationIds);
+        for (Notification notification : notifications) {
+            notification.updateIsRead(true);
+        }
+        notificationRepository.saveAll(notifications);
+    }
+
+    /**
      * title로 NotificationType을 찾는 메소드
      *
      * @param title NotificationTypeTitle enum
@@ -346,5 +366,4 @@ public class NotificationService {
             throw new NotificationException(ErrorCode.NOTIFICATION_NOT_FOUND);
         }
     }
-
 }
