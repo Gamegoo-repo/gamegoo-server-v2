@@ -52,9 +52,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Gradle Build (PROD)
-        run: ./gradlew clean build -x test
-
       # 4. Docker 확장 기능 추가
       - name: Docker 확장 기능 추가
         uses: docker/setup-buildx-action@v3
@@ -74,41 +71,46 @@ jobs:
           file: ./Dockerfile-prod # Dockerfile-prod 경로
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }} # 이미지 태그
-          platforms: linux/arm64
+          platforms: linux/amd64
 
+      ## CD (Continuous Deployment) 파트
+      # 7. EC2에 SSH로 접속하여 Docker 컨테이너 실행
+      - name: EC2에 배포
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.EC2_HOST }} # EC2 퍼블릭 IP
+          username: ubuntu # EC2 사용자 (기본은 ubuntu)
+          key: ${{ secrets.EC2_SSH_KEY }} # EC2 SSH Private Key
+          script_stop: true # SSH 명령어 실행 중 에러가 발생하면 워크플로 중단
+          script: |
+            sudo fuser -k -n tcp 8080 || true
 
-      - name: 홈서버(맥미니)에 배포 (Cloudflare SSH)
-        env:
-          DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }}
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              -o ProxyCommand="cloudflared access ssh --hostname ssh.gamegoo.co.kr" \
-              macmini@ssh.gamegoo.co.kr << 'EOF'
-            docker pull $DOCKER_IMAGE
-            docker rm -f gamegoo-api-v2-prod || true
+            docker rm -f gamegoo-api-v2-prod
+
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }}
+
             docker run -d \
-              --name gamegoo-api-v2-prod \
-              -p 8080:8080 \
-              --restart=always \
-              -e SPRING_PROFILES_ACTIVE=prod \
-              -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
-              -e RDS_PRIVATE_IP=${{ secrets.RDS_PRIVATE_IP }} \
-              -e RDS_PORT=${{ secrets.RDS_PORT }} \
-              -e PROD_DB_SCHEMA_NAME=${{ secrets.PROD_DB_SCHEMA_NAME }} \
-              -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
-              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
-              -e GMAIL_PWD=${{ secrets.GMAIL_PWD }} \
-              -e RIOT_API=${{ secrets.RIOT_API }} \
-              -e SOCKET_SERVER_URL=${{ secrets.SOCKET_SERVER_URL }} \
-              -e FRONT_URL=${{ secrets.FRONT_URL }} \
-              -e CLIENT_ID=${{ secrets.CLIENT_ID }} \
-              -e CLIENT_SECRET=${{ secrets.CLIENT_SECRET }} \
-              -e RSO_REDIRECT_URI=${{ secrets.PROD_RSO_REDIRECT_URI }} \
-              -e DISCORD_MONITORING_WEBHOOK_URL_PROD=${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_PROD }} \
-              -e DISCORD_SCHEDULER_WEBHOOK=${{ secrets.DISCORD_SCHEDULER_WEBHOOK }} \
-              -e ADMIN_COMMON_PASSWORD=${{ secrets.ADMIN_COMMON_PASSWORD }} \
-              $DOCKER_IMAGE
-          EOF
+            -p 8080:8080 \
+            --name gamegoo-api-v2-prod \
+            -v ${{ secrets.EC2_LOG_PATH }}:/app/logs \
+            -e SPRING_PROFILES_ACTIVE=prod \
+            -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
+            -e RDS_PRIVATE_IP=${{ secrets.RDS_PRIVATE_IP }} \
+            -e RDS_PORT=${{ secrets.RDS_PORT }} \
+            -e PROD_DB_SCHEMA_NAME=${{ secrets.PROD_DB_SCHEMA_NAME }} \
+            -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
+            -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            -e GMAIL_PWD=${{ secrets.GMAIL_PWD }} \
+            -e RIOT_API=${{ secrets.RIOT_API }} \
+            -e SOCKET_SERVER_URL=${{ secrets.SOCKET_SERVER_URL }} \
+            -e FRONT_URL=${{ secrets.FRONT_URL }} \
+            -e CLIENT_ID=${{ secrets.CLIENT_ID }} \
+            -e CLIENT_SECRET=${{ secrets.CLIENT_SECRET }} \
+            -e RSO_REDIRECT_URI=${{ secrets.PROD_RSO_REDIRECT_URI }} \
+            -e DISCORD_MONITORING_WEBHOOK_URL_PROD=${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_PROD }} \
+            -e DISCORD_SCHEDULER_WEBHOOK=${{ secrets.DISCORD_SCHEDULER_WEBHOOK }} \
+            -e ADMIN_COMMON_PASSWORD=${{ secrets.ADMIN_COMMON_PASSWORD }} \
+            ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }}
 
       # 8. 기존 Docker 이미지 삭제
       - name: 기존 Docker 이미지 삭제
