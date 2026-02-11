@@ -1,5 +1,8 @@
-name: Gamegoo v2 API DEV CI/CD
+name: Gamegoo v2 API QA CI/CD
 on:
+  push:
+    branches:
+      - qa
   pull_request:
     types: [ closed ]
     branches:
@@ -9,25 +12,26 @@ on:
 jobs:
   build-and-deploy: # Job 이름
     if: |
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest # 실행 환경 - 가장 최신 버전 Ubuntu 환경
 
     env: # 전체 job에서 사용할 환경 변수 설정
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      DEV_DB_HOST: ${{ secrets.DEV_DB_HOST }}
+      QA_DB_HOST: ${{ secrets.QA_DB_HOST }}
       RDS_PORT: ${{ secrets.RDS_PORT }}
-      DEV_DB_SCHEMA_NAME: ${{ secrets.DEV_DB_SCHEMA_NAME }}
+      QA_DB_SCHEMA_NAME: ${{ secrets.QA_DB_SCHEMA_NAME }}
       DB_USERNAME: ${{ secrets.DB_USERNAME }}
-      DEV_DB_PASSWORD: ${{ secrets.DEV_DB_PASSWORD }}
+      QA_DB_PASSWORD: ${{ secrets.QA_DB_PASSWORD }}
       GMAIL_PWD: ${{ secrets.GMAIL_PWD }}
       RIOT_API: ${{ secrets.RIOT_API }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-      SOCKET_SERVER_URL: ${{ secrets.SOCKET_SERVER_URL }}
+      SOCKET_SERVER_URL: ${{ secrets.QA_SOCKET_SERVER_URL }}
       FRONT_URL: ${{ secrets.FRONT_URL }}
       CLIENT_ID: ${{ secrets.CLIENT_ID }}
       CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
-      RSO_REDIRECT_URI: ${{ secrets.DEV_RSO_REDIRECT_URI }}
+      RSO_REDIRECT_URI: ${{ secrets.QA_RSO_REDIRECT_URI }}
       ADMIN_COMMON_PASSWORD: ${{ secrets.ADMIN_COMMON_PASSWORD }}
 
     steps:
@@ -62,10 +66,10 @@ jobs:
       - name: Docker 이미지 생성 및 push
         uses: docker/build-push-action@v6
         with:
-          context: . # Dockerfile-dev 위치
-          file: ./Dockerfile-dev # Dockerfile-dev 경로
+          context: . # Dockerfile-qa 위치
+          file: ./Dockerfile-qa # Dockerfile-qa 경로
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-dev:${{ github.sha }} # 이미지 태그
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-qa:${{ github.sha }} # 이미지 태그
           platforms: linux/amd64
 
       ## CD (Continuous Deployment) 파트
@@ -73,41 +77,39 @@ jobs:
       - name: EC2에 배포
         uses: appleboy/ssh-action@v1.1.0
         with:
-          host: ${{ secrets.DEV_EC2_HOST }} # EC2 퍼블릭 IP
+          host: ${{ secrets.QA_EC2_HOST }} # EC2 퍼블릭 IP
           username: ubuntu # EC2 사용자 (기본은 ubuntu)
-          key: ${{ secrets.DEV_EC2_SSH_KEY }} # EC2 SSH Private Key
+          key: ${{ secrets.EC2_SSH_KEY }} # EC2 SSH Private Key
           script_stop: true # SSH 명령어 실행 중 에러가 발생하면 워크플로 중단
           script: |
             sudo fuser -k -n tcp 8080 || true
 
-            docker rm -f gamegoo-api-v2-dev
+            docker rm -f gamegoo-api-v2-qa
 
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-dev:${{ github.sha }}
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-qa:${{ github.sha }}
 
             docker run -d \
             -p 8080:8080 \
-            --name gamegoo-api-v2-dev \
-            -v /home/ubuntu/pinpoint/pinpoint-agent-3.0.0:/pinpoint-agent:ro \
-            -e PINPOINT_AGENT_ID=gamegoo-dev-ec2 \
-            -e PINPOINT_APP_NAME=gamegoo-dev \
-            -e SPRING_PROFILES_ACTIVE=dev \
+            --name gamegoo-api-v2-qa \
+            -v ${{ secrets.EC2_LOG_PATH }}:/app/logs \
+            -e SPRING_PROFILES_ACTIVE=qa \
             -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
-            -e DEV_DB_HOST=${{ secrets.DEV_DB_HOST }} \
+            -e QA_DB_HOST=${{ secrets.QA_DB_HOST }} \
             -e RDS_PORT=${{ secrets.RDS_PORT }} \
-            -e DEV_DB_SCHEMA_NAME=${{ secrets.DEV_DB_SCHEMA_NAME }} \
+            -e QA_DB_SCHEMA_NAME=${{ secrets.QA_DB_SCHEMA_NAME }} \
             -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
-            -e DEV_DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }} \
+            -e QA_DB_PASSWORD=${{ secrets.QA_DB_PASSWORD }} \
             -e GMAIL_PWD=${{ secrets.GMAIL_PWD }} \
             -e RIOT_API=${{ secrets.RIOT_API }} \
-            -e SOCKET_SERVER_URL=${{ secrets.SOCKET_SERVER_URL }} \
+            -e SOCKET_SERVER_URL=${{ secrets.QA_SOCKET_SERVER_URL }} \
             -e FRONT_URL=${{ secrets.FRONT_URL }} \
             -e CLIENT_ID=${{ secrets.CLIENT_ID }} \
             -e CLIENT_SECRET=${{ secrets.CLIENT_SECRET }} \
-            -e RSO_REDIRECT_URI=${{ secrets.DEV_RSO_REDIRECT_URI }} \
-            -e DISCORD_MONITORING_WEBHOOK_URL_DEV=${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_DEV }} \
+            -e RSO_REDIRECT_URI=${{ secrets.QA_RSO_REDIRECT_URI }} \
+            -e DISCORD_MONITORING_WEBHOOK_URL_QA=${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_QA }} \
             -e DISCORD_SCHEDULER_WEBHOOK=${{ secrets.DISCORD_SCHEDULER_WEBHOOK }} \
             -e ADMIN_COMMON_PASSWORD=${{ secrets.ADMIN_COMMON_PASSWORD }} \
-            ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-dev:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-qa:${{ github.sha }}
 
       # 실패 시 디스코드에 알림 보내기
       - name: 배포 실패 시 디스코드 알림 전송
@@ -118,5 +120,5 @@ jobs:
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
           PR_URL="${{ github.event.pull_request.html_url }}"
           curl -X POST -H "Content-Type: application/json" \
-          -d "{\"content\": \"🚨 **Gamegoo v2 API 개발 서버 배포 실패** 🚨\nPR 번호: ${PR_NUMBER}\nPR 제목: ${PR_TITLE}\nPR 작성자: ${PR_AUTHOR}\n[PR 보기](${PR_URL})\"}" \
+          -d "{\"content\": \"🚨 **Gamegoo v2 API QA 서버 배포 실패** 🚨\nPR 번호: ${PR_NUMBER}\nPR 제목: ${PR_TITLE}\nPR 작성자: ${PR_AUTHOR}\n[PR 보기](${PR_URL})\"}" \
           $DISCORD_WEBHOOK_URL

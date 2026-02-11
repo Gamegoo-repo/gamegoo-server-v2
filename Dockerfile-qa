@@ -27,10 +27,4 @@ RUN apt-get update && apt-get install -y tzdata \
 COPY --from=build /app/build/libs/*SNAPSHOT.jar /app/gamegoov2.jar
 
 # 3) 실행
-ENTRYPOINT ["sh", "-c", "java \
-  -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-dev} \
-  -javaagent:/pinpoint-agent/pinpoint-bootstrap-3.0.0.jar \
-  -Dpinpoint.agentId=${PINPOINT_AGENT_ID} \
-  -Dpinpoint.applicationName=${PINPOINT_APP_NAME} \
-  -Dpinpoint.config=/pinpoint-agent/pinpoint-root.config \
-  -jar /app/gamegoov2.jar"]
+CMD ["java", "-Dspring.profiles.active=qa", "-jar", "gamegoov2.jar"]
