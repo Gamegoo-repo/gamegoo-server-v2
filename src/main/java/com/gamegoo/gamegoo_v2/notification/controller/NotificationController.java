@@ -8,7 +8,7 @@ import com.gamegoo.gamegoo_v2.core.common.annotation.ValidPage;
 import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
 import com.gamegoo.gamegoo_v2.notification.dto.NotificationCursorListResponse;
-import com.gamegoo.gamegoo_v2.notification.dto.NotificationMultiReadRequest;
+import com.gamegoo.gamegoo_v2.notification.dto.NotificationMultiRequest;
 import com.gamegoo.gamegoo_v2.notification.dto.NotificationPageListResponse;
 import com.gamegoo.gamegoo_v2.notification.dto.ReadNotificationResponse;
 import com.gamegoo.gamegoo_v2.notification.service.NotificationFacadeService;
@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -88,8 +89,17 @@ public class NotificationController {
     @PatchMapping
     @ApiErrorCodes({ErrorCode.NOTIFICATION_NOT_FOUND})
     public ApiResponse<String> readMultipleNotifications(
-            @RequestBody NotificationMultiReadRequest notificationMultiReadRequest,
+            @RequestBody NotificationMultiRequest notificationMultiRequest,
             @AuthMember Member member) {
-        return ApiResponse.ok(notificationFacadeService.readMultipleNotifications(member, notificationMultiReadRequest.getNotificationIds()));
+        return ApiResponse.ok(notificationFacadeService.readMultipleNotifications(member, notificationMultiRequest.getNotificationIds()));
+    }
+
+    @Operation(summary = "여러 알림 삭제 처리 API", description = "여러 알림을 한 번에 삭제 처리하는 API 입니다.")
+    @DeleteMapping
+    @ApiErrorCodes({ErrorCode.NOTIFICATION_NOT_FOUND})
+    public ApiResponse<String> deleteMultipleNotifications(
+            @RequestBody NotificationMultiRequest notificationMultiRequest,
+            @AuthMember Member member) {
+        return ApiResponse.ok(notificationFacadeService.deleteMultipleNotifications(member, notificationMultiRequest.getNotificationIds()));
     }
 }

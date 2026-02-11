@@ -9,7 +9,7 @@ import java.util.List;
 
 @Getter
 @Builder
-public class NotificationMultiReadRequest {
+public class NotificationMultiRequest {
 
     @Min(value = 1)
     @NotNull(message = "mike 는 비워둘 수 없습니다.")

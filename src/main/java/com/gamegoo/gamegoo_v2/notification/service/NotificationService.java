@@ -366,4 +366,22 @@ public class NotificationService {
             throw new NotificationException(ErrorCode.NOTIFICATION_NOT_FOUND);
         }
     }
+
+    /**
+     * 여러 알림 삭제 처리 메소드
+     * @param member       회원
+     * @param notificationIds 삭제할 알림 id 리스트
+     */
+    @Transactional
+    public void deleteMultipleNotifications(Member member, List<Long> notificationIds) {
+        // 각 notificationId에 해당하는 알림 존재 여부 검증
+        for (Long notificationId : notificationIds) {
+            validateNotificationExists(member, notificationId);
+        }
+
+        // 알림 일괄 삭제 처리
+        List<Notification> notifications = notificationRepository.findAllById(notificationIds);
+        notificationRepository.deleteAll(notifications);
+    }
+
 }
