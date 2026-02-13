@@ -97,7 +97,11 @@ public class ChampionStatsRefreshService {
 
         // 최근 30게임 통계 계산 및 저장
         MemberRecentStats memberRecentStats = memberRecentStatsRepository.findById(memberId)
-                .orElse(MemberRecentStats.builder().member(freshMember).build());
+                .orElseGet(() -> {
+                    MemberRecentStats stats = MemberRecentStats.builder().build();
+                    freshMember.setMemberRecentStats(stats);
+                    return stats;
+                });
 
         // 기존 통합 통계 업데이트 (프로필용)
         memberRecentStats.update(

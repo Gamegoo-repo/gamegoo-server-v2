@@ -69,9 +69,8 @@ public class MemberService {
         memberRepository.save(member);
 
         // MemberRecentStats 빈 껍데기 생성 (비동기 통계 갱신 전 EntityNotFoundException 방지)
-        MemberRecentStats recentStats = MemberRecentStats.builder()
-                .member(member)
-                .build();
+        MemberRecentStats recentStats = MemberRecentStats.builder().build();
+        member.setMemberRecentStats(recentStats);
         memberRecentStatsRepository.save(recentStats);
 
         return member;
