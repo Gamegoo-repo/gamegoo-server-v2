@@ -5,10 +5,13 @@ import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
 import com.gamegoo.gamegoo_v2.external.riot.dto.request.RiotJoinRequest;
 import com.gamegoo.gamegoo_v2.external.riot.dto.request.RiotVerifyExistUserRequest;
+import com.gamegoo.gamegoo_v2.external.riot.dto.response.RSOLoginResponse;
 import com.gamegoo.gamegoo_v2.external.riot.dto.response.RiotJoinResponse;
 import com.gamegoo.gamegoo_v2.external.riot.service.RiotFacadeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -67,10 +70,24 @@ public class RiotController {
             ErrorCode.STATE_WRONG_DECODE,
             ErrorCode.INACTIVE_MEMBER
     })
-    public ResponseEntity<Void> handleRSOCallback(@RequestParam("code") String code,
-                                                  @RequestParam(required = false) String state) {
+    public ResponseEntity<RSOLoginResponse> handleRSOCallback(@RequestParam("code") String code,
+                                                              @RequestParam(required = false) String state,
+                                                              HttpServletResponse response) {
+
+        RSOLoginResponse rsoLoginResponse = riotFacadeService.processOAuthCallback(code, state);
+
+        // refreshToken 쿠키로 저장
+        if (rsoLoginResponse.getRefreshToken() != null) {
+            Cookie refreshCookie = new Cookie("refreshToken", rsoLoginResponse.getRefreshToken());
+            refreshCookie.setHttpOnly(true);
+            refreshCookie.setSecure(true);
+            refreshCookie.setPath("/");
+            refreshCookie.setMaxAge(60 * 60 * 24 * 14);
+            response.addCookie(refreshCookie);
+        }
+
         return ResponseEntity.status(HttpStatus.FOUND)
-                .header("Location", riotFacadeService.processOAuthCallback(code, state))
+                .header("Location", rsoLoginResponse.getRedirectUrl())
                 .build();
     }
 

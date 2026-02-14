@@ -3,7 +3,7 @@ package com.gamegoo.gamegoo_v2.account.auth.service;
 import com.gamegoo.gamegoo_v2.account.auth.domain.Role;
 import com.gamegoo.gamegoo_v2.account.auth.dto.request.AdminLoginRequest;
 import com.gamegoo.gamegoo_v2.account.auth.dto.request.RefreshTokenRequest;
-import com.gamegoo.gamegoo_v2.account.auth.dto.response.RefreshTokenResponse;
+import com.gamegoo.gamegoo_v2.account.auth.dto.response.TokensResponse;
 import com.gamegoo.gamegoo_v2.account.auth.dto.response.RejoinResponse;
 import com.gamegoo.gamegoo_v2.account.auth.jwt.JwtProvider;
 import com.gamegoo.gamegoo_v2.account.member.domain.Member;
@@ -17,7 +17,6 @@ import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
 import com.gamegoo.gamegoo_v2.external.riot.dto.response.RiotJoinResponse;
 import com.gamegoo.gamegoo_v2.social.friend.service.FriendService;
 import com.gamegoo.gamegoo_v2.social.manner.service.MannerService;
-import com.gamegoo.gamegoo_v2.test_support.dto.TokensResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -59,7 +58,7 @@ public class AuthFacadeService {
      * @param request 리프레시 토큰
      * @return 사용자 정보
      */
-    public RefreshTokenResponse updateToken(RefreshTokenRequest request) {
+    public TokensResponse updateToken(RefreshTokenRequest request) {
         // refresh 토큰 검증
         authService.verifyRefreshToken(request.getRefreshToken());
 
@@ -77,7 +76,7 @@ public class AuthFacadeService {
         // refreshToken 저장
         authService.updateRefreshToken(member, refreshToken);
 
-        return RefreshTokenResponse.of(memberId, accessToken, refreshToken);
+        return TokensResponse.of(memberId, accessToken, refreshToken);
     }
 
     /**
@@ -111,23 +110,12 @@ public class AuthFacadeService {
     }
 
     /**
-     * 테스트용 access token 발급
-     *
-     * @param memberId
-     * @return
-     */
-    public String createTestAccessToken(Long memberId) {
-        Member member = memberService.findMemberById(memberId);
-        return jwtProvider.createAccessToken(member.getId(), member.getRole());
-    }
-
-    /**
      * 테스트용 access, refresh token 발급
      *
      * @param memberId
      * @return TokensResponse
      */
-    public TokensResponse createTestAccessTokenAndRefreshTokens(Long memberId) {
+    public com.gamegoo.gamegoo_v2.test_support.dto.TokensResponse createTestAccessTokenAndRefreshTokens(Long memberId) {
         // jwt 토큰 재발급
         String accessToken = jwtProvider.createAccessToken(memberId, Role.MEMBER);
         String refreshToken = jwtProvider.createRefreshToken(memberId, Role.MEMBER);
@@ -137,7 +125,7 @@ public class AuthFacadeService {
 
         // refreshToken 저장
         authService.updateRefreshToken(member, refreshToken);
-        return TokensResponse.of(accessToken, refreshToken);
+        return com.gamegoo.gamegoo_v2.test_support.dto.TokensResponse.of(accessToken, refreshToken);
     }
 
     /**

@@ -2,7 +2,7 @@ package com.gamegoo.gamegoo_v2.integration.auth;
 
 import com.gamegoo.gamegoo_v2.account.auth.domain.RefreshToken;
 import com.gamegoo.gamegoo_v2.account.auth.dto.request.RefreshTokenRequest;
-import com.gamegoo.gamegoo_v2.account.auth.dto.response.RefreshTokenResponse;
+import com.gamegoo.gamegoo_v2.account.auth.dto.response.TokensResponse;
 import com.gamegoo.gamegoo_v2.account.auth.jwt.JwtProvider;
 import com.gamegoo.gamegoo_v2.account.auth.repository.RefreshTokenRepository;
 import com.gamegoo.gamegoo_v2.account.auth.service.AuthFacadeService;
@@ -81,17 +81,17 @@ class AuthFacadeServiceTest {
             RefreshTokenRequest refreshTokenRequest = RefreshTokenRequest.builder().refreshToken(token).build();
 
             // when
-            RefreshTokenResponse refreshTokenResponse = authFacadeService.updateToken(refreshTokenRequest);
+            TokensResponse tokensResponse = authFacadeService.updateToken(refreshTokenRequest);
 
             // then
             Optional<RefreshToken> result = refreshTokenRepository.findByMember(member);
             assertThat(result).isPresent();
 
-            Long jwtId = jwtProvider.getMemberId(refreshTokenResponse.getAccessToken());
+            Long jwtId = jwtProvider.getMemberId(tokensResponse.getAccessToken());
             Long memberId = member.getId();
             assertThat(jwtId).isEqualTo(memberId);
 
-            Long responseId = refreshTokenResponse.getId();
+            Long responseId = tokensResponse.getId();
             assertThat(responseId).isEqualTo(memberId);
 
             Long tokenExpirationTime = jwtProvider.getTokenExpirationTime(result.get().getRefreshToken());

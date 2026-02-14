@@ -3,7 +3,8 @@ package com.gamegoo.gamegoo_v2.account.auth.controller;
 import com.gamegoo.gamegoo_v2.account.auth.annotation.AuthMember;
 import com.gamegoo.gamegoo_v2.account.auth.dto.request.AdminLoginRequest;
 import com.gamegoo.gamegoo_v2.account.auth.dto.request.RefreshTokenRequest;
-import com.gamegoo.gamegoo_v2.account.auth.dto.response.RefreshTokenResponse;
+import com.gamegoo.gamegoo_v2.account.auth.dto.response.AccessTokenResponse;
+import com.gamegoo.gamegoo_v2.account.auth.dto.response.TokensResponse;
 import com.gamegoo.gamegoo_v2.account.auth.dto.response.RejoinResponse;
 import com.gamegoo.gamegoo_v2.account.auth.service.AuthFacadeService;
 import com.gamegoo.gamegoo_v2.account.member.domain.Member;
@@ -13,12 +14,11 @@ import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
 import com.gamegoo.gamegoo_v2.external.riot.dto.response.RiotJoinResponse;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,14 +30,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthFacadeService authFacadeService;
-
-    @GetMapping("/token/{memberId}")
-    @Operation(summary = "임시 access token 발급 API", description = "테스트용으로 access token을 발급받을 수 있는 API 입니다.")
-    @Parameter(name = "memberId", description = "대상 회원의 id 입니다.")
-    @ApiErrorCodes({ErrorCode.MEMBER_NOT_FOUND})
-    public ApiResponse<String> getTestAccessToken(@PathVariable(name = "memberId") Long memberId) {
-        return ApiResponse.ok(authFacadeService.createTestAccessToken(memberId));
-    }
 
     @PostMapping("/logout")
     @Operation(summary = "logout API 입니다.", description = "API for logout")
@@ -61,8 +53,21 @@ public class AuthController {
             ErrorCode.INVALID_CLAIMS,
             ErrorCode.MEMBER_NOT_FOUND
     })
-    public ApiResponse<RefreshTokenResponse> updateToken(@Valid @RequestBody RefreshTokenRequest request) {
-        return ApiResponse.ok(authFacadeService.updateToken(request));
+    public ApiResponse<AccessTokenResponse> updateToken(@Valid @RequestBody RefreshTokenRequest request,
+                                                        HttpServletResponse response) {
+        TokensResponse tokensResponse = authFacadeService.updateToken(request);
+
+        // refreshToken 쿠키로 저장
+        if (tokensResponse.getRefreshToken() != null) {
+            Cookie refreshCookie = new Cookie("refreshToken", tokensResponse.getRefreshToken());
+            refreshCookie.setHttpOnly(true);
+            refreshCookie.setSecure(true);
+            refreshCookie.setPath("/");
+            refreshCookie.setMaxAge(60 * 60 * 24 * 14);
+            response.addCookie(refreshCookie);
+        }
+
+        return ApiResponse.ok(AccessTokenResponse.of(tokensResponse.getId(),tokensResponse.getAccessToken()));
     }
 
     @DeleteMapping
