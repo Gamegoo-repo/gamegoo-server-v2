@@ -9,6 +9,7 @@ import com.gamegoo.gamegoo_v2.matching.domain.GameMode;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -72,6 +73,12 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             @Param("positionList") List<Position> positionList,
             @Param("mike") Mike mike,
             Pageable pageable);
+
+    @EntityGraph(attributePaths = "member")
+    @Query("SELECT b FROM Board b " +
+           "WHERE b.deleted = false " +
+           "ORDER BY COALESCE(b.bumpTime, b.createdAt) DESC, b.id DESC")
+    List<Board> findRecentBoardsWithMember(Pageable pageable);
 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Board b SET b.deleted = true where b.member = :member")
