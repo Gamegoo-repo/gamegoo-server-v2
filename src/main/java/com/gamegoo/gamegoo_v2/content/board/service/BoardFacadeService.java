@@ -131,7 +131,6 @@ public class BoardFacadeService {
             MemberRecentStats memberRecentStats;
             if (recentStats != null) {
                 memberRecentStats = MemberRecentStats.builder()
-                        .member(tmpMember)  // @MapsId를 위해 member 설정
                         .recTotalWins(recentStats.getRecTotalWins())
                         .recTotalLosses(recentStats.getRecTotalLosses())
                         .recWinRate(recentStats.getRecWinRate())
@@ -145,7 +144,6 @@ public class BoardFacadeService {
             } else {
                 // recentStats가 null인 경우 기본값으로 생성
                 memberRecentStats = MemberRecentStats.builder()
-                        .member(tmpMember)  // @MapsId를 위해 member 설정
                         .recTotalWins(0)
                         .recTotalLosses(0)
                         .recWinRate(0.0)

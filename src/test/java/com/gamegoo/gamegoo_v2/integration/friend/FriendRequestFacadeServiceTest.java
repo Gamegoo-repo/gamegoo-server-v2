@@ -387,12 +387,13 @@ class FriendRequestFacadeServiceTest {
                 .isAgree(true)
                 .build();
 
-        MemberRecentStats stats = MemberRecentStats.builder()
-                .member(member)
-                .build();
+        MemberRecentStats stats = MemberRecentStats.builder().build();
         member.setMemberRecentStats(stats);
 
-        return memberRepository.save(member);
+        Member savedMember = memberRepository.save(member);
+        memberRecentStatsRepository.save(stats);
+
+        return savedMember;
     }
 
 }
