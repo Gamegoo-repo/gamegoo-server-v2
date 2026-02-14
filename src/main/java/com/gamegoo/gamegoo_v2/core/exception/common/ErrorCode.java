@@ -156,6 +156,13 @@ public enum ErrorCode {
     GUEST_BOARD_ACCESS_DENIED(FORBIDDEN, "BOARD_413", "비회원 게시글에 대한 접근 권한이 없습니다."),
     INVALID_GUEST_PASSWORD(UNAUTHORIZED, "BOARD_414", "비회원 게시글 비밀번호가 틀렸습니다."),
 
+    /**
+     * 롤BTI 관련 에러
+     */
+    ROLL_BTI_PROFILE_NOT_FOUND(BAD_REQUEST, "ROLLBTI_401", "롤BTI 결과가 저장되지 않았습니다."),
+    ROLL_BTI_SIZE_BAD_REQUEST(BAD_REQUEST, "ROLLBTI_402", "추천 size 값은 1 이상이어야 합니다."),
+    ROLL_BTI_TYPE_NOT_SUPPORTED(BAD_REQUEST, "ROLLBTI_403", "지원하지 않는 롤BTI 타입입니다."),
+
 
     /**
      * 매너평가 관련 에러
