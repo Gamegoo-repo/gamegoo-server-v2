@@ -7,8 +7,6 @@ import java.util.Optional;
 
 public interface RollBtiGuestResultRepository extends JpaRepository<RollBtiGuestResult, Long> {
 
-    boolean existsByResultId(String resultId);
-
     Optional<RollBtiGuestResult> findByResultId(String resultId);
 }
 

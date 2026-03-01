@@ -29,6 +29,7 @@ import com.gamegoo.gamegoo_v2.rollbti.repository.RollBtiGuestResultRepository;
 import com.gamegoo.gamegoo_v2.rollbti.repository.MemberRollBtiProfileRepository;
 import com.gamegoo.gamegoo_v2.rollbti.repository.RollBtiEventRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -71,6 +73,7 @@ public class RollBtiFacadeService {
     private final MemberRollBtiProfileRepository memberRollBtiProfileRepository;
     private final RollBtiEventRepository rollBtiEventRepository;
     private final RollBtiGuestResultRepository rollBtiGuestResultRepository;
+    private final RollBtiGuestResultSaver rollBtiGuestResultSaver;
     private final RollBtiCatalogService rollBtiCatalogService;
     private final ObjectMapper objectMapper;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -119,14 +122,19 @@ public class RollBtiFacadeService {
         return RollBtiParticipationCountResponse.of(totalParticipants);
     }
 
-    @Transactional
     public RollBtiGuestResultSaveResponse saveGuestResult(RollBtiGuestResultSaveRequest request) {
-        String resultId = generateUniqueResultId();
         String payload = serializePayload(request.getResultPayload());
 
-        RollBtiGuestResult saved = rollBtiGuestResultRepository.save(
-                RollBtiGuestResult.create(resultId, request.getType(), payload, request.getSessionId()));
-        return RollBtiGuestResultSaveResponse.of(saved);
+        for (int i = 0; i < RESULT_ID_RETRY_LIMIT; i++) {
+            String resultId = generateRandomResultId();
+            var saved = rollBtiGuestResultSaver.trySave(
+                    resultId, request.getType(), payload, request.getSessionId());
+            if (saved.isPresent()) {
+                return RollBtiGuestResultSaveResponse.of(saved.get());
+            }
+            log.warn("롤BTI 결과 ID 충돌 발생, 재시도합니다. resultId={}, attempt={}", resultId, i + 1);
+        }
+        throw new RollBtiException(ErrorCode._INTERNAL_SERVER_ERROR, RESULT_ID_GENERATION_FAILED_MESSAGE);
     }
 
     public RollBtiGuestResultResponse getGuestResultByResultId(String resultId) {
@@ -273,16 +281,6 @@ public class RollBtiFacadeService {
                 .orElseThrow(() -> new RollBtiException(ErrorCode.ROLL_BTI_PROFILE_NOT_FOUND));
     }
 
-    private String generateUniqueResultId() {
-        for (int i = 0; i < RESULT_ID_RETRY_LIMIT; i++) {
-            String resultId = generateRandomResultId();
-            if (!rollBtiGuestResultRepository.existsByResultId(resultId)) {
-                return resultId;
-            }
-        }
-        throw new RollBtiException(ErrorCode._INTERNAL_SERVER_ERROR, RESULT_ID_GENERATION_FAILED_MESSAGE);
-    }
-
     private String generateRandomResultId() {
         StringBuilder sb = new StringBuilder(RESULT_ID_LENGTH);
         for (int i = 0; i < RESULT_ID_LENGTH; i++) {
@@ -295,6 +293,7 @@ public class RollBtiFacadeService {
         try {
             return objectMapper.writeValueAsString(resultPayload);
         } catch (JsonProcessingException e) {
+            log.error("롤BTI 결과 payload 직렬화 실패", e);
             throw new RollBtiException(ErrorCode._INTERNAL_SERVER_ERROR, RESULT_PAYLOAD_SERIALIZATION_FAILED_MESSAGE);
         }
     }
@@ -303,6 +302,7 @@ public class RollBtiFacadeService {
         try {
             return objectMapper.readTree(resultPayload);
         } catch (JsonProcessingException e) {
+            log.error("롤BTI 결과 payload 역직렬화 실패", e);
             throw new RollBtiException(ErrorCode._INTERNAL_SERVER_ERROR, RESULT_PAYLOAD_DESERIALIZATION_FAILED_MESSAGE);
         }
     }
