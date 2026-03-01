@@ -34,6 +34,8 @@ public class MyBoardListResponse {
     LocalDateTime bumpTime;
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     Integer mannerLevel;
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    Boolean canRefresh;
 
     public static MyBoardListResponse of(Board board) {
         Member member = board.getMember();
@@ -60,6 +62,7 @@ public class MyBoardListResponse {
                 .createdAt(board.getCreatedAt())
                 .bumpTime(board.getBumpTime())
                 .mannerLevel(member.getMannerLevel())
+                .canRefresh(member.canRefreshChampionStats())
                 .build();
     }
 
