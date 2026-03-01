@@ -1,5 +1,8 @@
 package com.gamegoo.gamegoo_v2.rollbti.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gamegoo.gamegoo_v2.account.member.domain.Member;
 import com.gamegoo.gamegoo_v2.account.member.repository.MemberRepository;
 import com.gamegoo.gamegoo_v2.content.board.domain.Board;
@@ -7,16 +10,22 @@ import com.gamegoo.gamegoo_v2.content.board.repository.BoardRepository;
 import com.gamegoo.gamegoo_v2.core.exception.MemberException;
 import com.gamegoo.gamegoo_v2.core.exception.RollBtiException;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
+import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiGuestResult;
 import com.gamegoo.gamegoo_v2.rollbti.domain.MemberRollBtiProfile;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiEvent;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiType;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiEventRequest;
+import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiGuestResultSaveRequest;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiSaveRequest;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiCompatibilityResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiGuestResultResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiGuestResultSaveResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiParticipationCountResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiProfileResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendedMemberResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiTypeSummaryResponse;
+import com.gamegoo.gamegoo_v2.rollbti.repository.RollBtiGuestResultRepository;
 import com.gamegoo.gamegoo_v2.rollbti.repository.MemberRollBtiProfileRepository;
 import com.gamegoo.gamegoo_v2.rollbti.repository.RollBtiEventRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +33,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -48,13 +58,22 @@ public class RollBtiFacadeService {
     private static final int NORMAL_SCORE = 60;
     private static final int NO_PROFILE_SCORE = 50;
     private static final int BAD_MATCH_SCORE = 20;
+    private static final int RESULT_ID_LENGTH = 9;
+    private static final int RESULT_ID_RETRY_LIMIT = 20;
+    private static final char[] RESULT_ID_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
     private static final String EVENT_SAVED_MESSAGE = "롤BTI 이벤트가 저장되었습니다.";
+    private static final String RESULT_ID_GENERATION_FAILED_MESSAGE = "롤BTI 결과 공유 ID 생성에 실패했습니다.";
+    private static final String RESULT_PAYLOAD_SERIALIZATION_FAILED_MESSAGE = "롤BTI 결과 payload 직렬화에 실패했습니다.";
+    private static final String RESULT_PAYLOAD_DESERIALIZATION_FAILED_MESSAGE = "롤BTI 결과 payload 역직렬화에 실패했습니다.";
 
     private final MemberRepository memberRepository;
     private final BoardRepository boardRepository;
     private final MemberRollBtiProfileRepository memberRollBtiProfileRepository;
     private final RollBtiEventRepository rollBtiEventRepository;
+    private final RollBtiGuestResultRepository rollBtiGuestResultRepository;
     private final RollBtiCatalogService rollBtiCatalogService;
+    private final ObjectMapper objectMapper;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
     public RollBtiProfileResponse saveMyType(Member member, RollBtiSaveRequest request) {
@@ -93,6 +112,27 @@ public class RollBtiFacadeService {
 
     public RollBtiRecommendationResponse getRecommendationsByType(RollBtiType type, Integer size, Long excludeMemberId) {
         return getRecommendations(type, size, excludeMemberId);
+    }
+
+    public RollBtiParticipationCountResponse getParticipationCount() {
+        long totalParticipants = rollBtiEventRepository.countDistinctParticipantsByCompleteTest();
+        return RollBtiParticipationCountResponse.of(totalParticipants);
+    }
+
+    @Transactional
+    public RollBtiGuestResultSaveResponse saveGuestResult(RollBtiGuestResultSaveRequest request) {
+        String resultId = generateUniqueResultId();
+        String payload = serializePayload(request.getResultPayload());
+
+        RollBtiGuestResult saved = rollBtiGuestResultRepository.save(
+                RollBtiGuestResult.create(resultId, request.getType(), payload, request.getSessionId()));
+        return RollBtiGuestResultSaveResponse.of(saved);
+    }
+
+    public RollBtiGuestResultResponse getGuestResultByResultId(String resultId) {
+        RollBtiGuestResult result = rollBtiGuestResultRepository.findByResultId(resultId)
+                .orElseThrow(() -> new RollBtiException(ErrorCode.ROLL_BTI_RESULT_NOT_FOUND));
+        return RollBtiGuestResultResponse.of(result, deserializePayload(result.getResultPayload()));
     }
 
     @Transactional
@@ -231,5 +271,39 @@ public class RollBtiFacadeService {
     private MemberRollBtiProfile getProfileOrThrow(Long memberId) {
         return memberRollBtiProfileRepository.findByMember_Id(memberId)
                 .orElseThrow(() -> new RollBtiException(ErrorCode.ROLL_BTI_PROFILE_NOT_FOUND));
+    }
+
+    private String generateUniqueResultId() {
+        for (int i = 0; i < RESULT_ID_RETRY_LIMIT; i++) {
+            String resultId = generateRandomResultId();
+            if (!rollBtiGuestResultRepository.existsByResultId(resultId)) {
+                return resultId;
+            }
+        }
+        throw new RollBtiException(ErrorCode._INTERNAL_SERVER_ERROR, RESULT_ID_GENERATION_FAILED_MESSAGE);
+    }
+
+    private String generateRandomResultId() {
+        StringBuilder sb = new StringBuilder(RESULT_ID_LENGTH);
+        for (int i = 0; i < RESULT_ID_LENGTH; i++) {
+            sb.append(RESULT_ID_CHARS[secureRandom.nextInt(RESULT_ID_CHARS.length)]);
+        }
+        return sb.toString();
+    }
+
+    private String serializePayload(JsonNode resultPayload) {
+        try {
+            return objectMapper.writeValueAsString(resultPayload);
+        } catch (JsonProcessingException e) {
+            throw new RollBtiException(ErrorCode._INTERNAL_SERVER_ERROR, RESULT_PAYLOAD_SERIALIZATION_FAILED_MESSAGE);
+        }
+    }
+
+    private JsonNode deserializePayload(String resultPayload) {
+        try {
+            return objectMapper.readTree(resultPayload);
+        } catch (JsonProcessingException e) {
+            throw new RollBtiException(ErrorCode._INTERNAL_SERVER_ERROR, RESULT_PAYLOAD_DESERIALIZATION_FAILED_MESSAGE);
+        }
     }
 }
