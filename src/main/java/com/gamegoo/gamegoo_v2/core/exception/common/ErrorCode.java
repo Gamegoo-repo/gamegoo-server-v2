@@ -162,6 +162,7 @@ public enum ErrorCode {
     ROLL_BTI_PROFILE_NOT_FOUND(BAD_REQUEST, "ROLLBTI_401", "롤BTI 결과가 저장되지 않았습니다."),
     ROLL_BTI_SIZE_BAD_REQUEST(BAD_REQUEST, "ROLLBTI_402", "추천 size 값은 1 이상이어야 합니다."),
     ROLL_BTI_TYPE_NOT_SUPPORTED(BAD_REQUEST, "ROLLBTI_403", "지원하지 않는 롤BTI 타입입니다."),
+    ROLL_BTI_RESULT_NOT_FOUND(NOT_FOUND, "ROLLBTI_404", "공유된 롤BTI 결과를 찾을 수 없습니다."),
 
 
     /**

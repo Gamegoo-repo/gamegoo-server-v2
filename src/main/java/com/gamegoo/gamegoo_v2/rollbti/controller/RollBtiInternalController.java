@@ -5,8 +5,12 @@ import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiType;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiEventRequest;
+import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiGuestResultSaveRequest;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiSaveRequest;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiCompatibilityResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiGuestResultResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiGuestResultSaveResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiParticipationCountResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiProfileResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiTypeSummaryResponse;
@@ -88,6 +92,34 @@ public class RollBtiInternalController {
             @Min(value = 1, message = "excludeMemberId는 1 이상이어야 합니다.")
             Long excludeMemberId) {
         return ApiResponse.ok(rollBtiFacadeService.getRecommendationsByType(type, size, excludeMemberId));
+    }
+
+    @Operation(summary = "롤BTI 누적 참여 인원 조회 API",
+            description = "complete_test 이벤트를 기준으로 누적 참여 인원 수를 반환합니다.")
+    @GetMapping("/participants")
+    public ApiResponse<RollBtiParticipationCountResponse> getParticipationCount() {
+        return ApiResponse.ok(rollBtiFacadeService.getParticipationCount());
+    }
+
+    @Operation(summary = "비회원 롤BTI 결과 저장 API",
+            description = "비회원도 결과 payload를 저장하고 공유용 resultId를 발급받을 수 있습니다.")
+    @PostMapping("/results")
+    @ApiErrorCodes({
+            ErrorCode._BAD_REQUEST
+    })
+    public ApiResponse<RollBtiGuestResultSaveResponse> saveGuestResult(
+            @Valid @RequestBody RollBtiGuestResultSaveRequest request) {
+        return ApiResponse.ok(rollBtiFacadeService.saveGuestResult(request));
+    }
+
+    @Operation(summary = "비회원 롤BTI 결과 조회 API",
+            description = "공유용 resultId로 저장된 결과 payload를 조회합니다.")
+    @GetMapping("/results/{resultId}")
+    @ApiErrorCodes({
+            ErrorCode.ROLL_BTI_RESULT_NOT_FOUND
+    })
+    public ApiResponse<RollBtiGuestResultResponse> getGuestResult(@PathVariable String resultId) {
+        return ApiResponse.ok(rollBtiFacadeService.getGuestResultByResultId(resultId));
     }
 
     @Operation(summary = "롤BTI 이벤트 적재 API",
