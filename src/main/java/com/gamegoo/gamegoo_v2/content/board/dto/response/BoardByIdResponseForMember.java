@@ -68,6 +68,8 @@ public class BoardByIdResponseForMember {
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     List<Long> gameStyles;
     String contents;
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    Boolean canRefresh;
 
 
     public static BoardByIdResponseForMember of(
@@ -143,6 +145,7 @@ public class BoardByIdResponseForMember {
                 .winRate(winRate)
                 .gameStyles(gameStyleIds)
                 .contents(board.getContent())
+                .canRefresh(poster.canRefreshChampionStats())
                 .build();
     }
 
