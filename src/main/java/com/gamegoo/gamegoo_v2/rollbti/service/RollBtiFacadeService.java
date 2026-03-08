@@ -4,12 +4,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gamegoo.gamegoo_v2.account.member.domain.Member;
+import com.gamegoo.gamegoo_v2.account.member.domain.MemberChampion;
+import com.gamegoo.gamegoo_v2.account.member.domain.Tier;
 import com.gamegoo.gamegoo_v2.account.member.repository.MemberRepository;
+import com.gamegoo.gamegoo_v2.content.board.dto.response.ChampionStatsResponse;
 import com.gamegoo.gamegoo_v2.content.board.domain.Board;
 import com.gamegoo.gamegoo_v2.content.board.repository.BoardRepository;
 import com.gamegoo.gamegoo_v2.core.exception.MemberException;
 import com.gamegoo.gamegoo_v2.core.exception.RollBtiException;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
+import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiCompatibilityOrder;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiGuestResult;
 import com.gamegoo.gamegoo_v2.rollbti.domain.MemberRollBtiProfile;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiEvent;
@@ -108,13 +112,22 @@ public class RollBtiFacadeService {
         return rollBtiCatalogService.getCompatibility(type);
     }
 
-    public RollBtiRecommendationResponse getMyRecommendations(Member member, Integer size) {
+    public RollBtiRecommendationResponse getMyRecommendations(
+            Member member,
+            Integer size,
+            RollBtiCompatibilityOrder compatibilityOrder,
+            Tier tier) {
         RollBtiType type = getProfileOrThrow(member.getId()).getRollBtiType();
-        return getRecommendations(type, size, member.getId());
+        return getRecommendations(type, size, compatibilityOrder, tier, member.getId());
     }
 
-    public RollBtiRecommendationResponse getRecommendationsByType(RollBtiType type, Integer size, Long excludeMemberId) {
-        return getRecommendations(type, size, excludeMemberId);
+    public RollBtiRecommendationResponse getRecommendationsByType(
+            RollBtiType type,
+            Integer size,
+            RollBtiCompatibilityOrder compatibilityOrder,
+            Tier tier,
+            Long excludeMemberId) {
+        return getRecommendations(type, size, compatibilityOrder, tier, excludeMemberId);
     }
 
     public RollBtiParticipationCountResponse getParticipationCount() {
@@ -161,23 +174,39 @@ public class RollBtiFacadeService {
         return EVENT_SAVED_MESSAGE;
     }
 
-    private RollBtiRecommendationResponse getRecommendations(RollBtiType requesterType, Integer size, Long excludeMemberId) {
+    private RollBtiRecommendationResponse getRecommendations(
+            RollBtiType requesterType,
+            Integer size,
+            RollBtiCompatibilityOrder compatibilityOrder,
+            Tier tier,
+            Long excludeMemberId) {
         int normalizedSize = normalizeSize(size);
         int fetchSize = normalizeFetchSize(normalizedSize);
 
-        List<Board> recentBoards = boardRepository.findRecentBoardsWithMember(PageRequest.of(0, fetchSize));
+        Map<Long, Board> latestBoardByMemberId = new LinkedHashMap<>();
+        int page = 0;
 
-        // 최신순으로 조회된 게시글에서 회원당 최신 게시글 1개만 유지
-        Map<Long, Board> latestBoardByMemberId = recentBoards.stream()
-                .filter(board -> board.getMember() != null)
-                .filter(board -> excludeMemberId == null || !Objects.equals(board.getMember().getId(), excludeMemberId))
-                .collect(Collectors.toMap(
-                        board -> board.getMember().getId(),
-                        board -> board,
-                        (existing, ignored) -> existing,
-                        LinkedHashMap::new));
+        while (!hasEnoughCandidateBoards(latestBoardByMemberId, tier, fetchSize)) {
+            List<Board> recentBoards = boardRepository.findRecentBoardsWithMember(PageRequest.of(page, fetchSize));
+            if (recentBoards.isEmpty()) {
+                break;
+            }
 
-        List<Board> boards = new ArrayList<>(latestBoardByMemberId.values());
+            recentBoards.stream()
+                    .filter(board -> board.getMember() != null)
+                    .filter(board -> excludeMemberId == null || !Objects.equals(board.getMember().getId(), excludeMemberId))
+                    .forEach(board -> latestBoardByMemberId.putIfAbsent(board.getMember().getId(), board));
+
+            if (recentBoards.size() < fetchSize) {
+                break;
+            }
+
+            page++;
+        }
+
+        List<Board> boards = latestBoardByMemberId.values().stream()
+                .filter(board -> matchesTier(board, tier))
+                .toList();
 
         Map<Long, RollBtiType> targetTypeByMemberId = getTargetTypeByMemberId(boards);
         Set<RollBtiType> goodMatches = rollBtiCatalogService.getGoodMatches(requesterType);
@@ -203,16 +232,59 @@ public class RollBtiFacadeService {
                             board.getContent(),
                             targetType,
                             compatibilityScore,
-                            board.getActivityTime());
+                            board.getActivityTime(),
+                            getRecommendedChampionStats(board.getMember()));
                 })
-                .sorted(Comparator.comparingInt(RollBtiRecommendedMemberResponse::getCompatibilityScore).reversed()
-                        .thenComparing(RollBtiRecommendedMemberResponse::getActivityTime,
-                                Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(RollBtiRecommendedMemberResponse::getBoardId, Comparator.reverseOrder()))
+                .sorted(getRecommendationComparator(compatibilityOrder))
                 .limit(normalizedSize)
                 .collect(Collectors.toList());
 
         return RollBtiRecommendationResponse.of(requesterType, normalizedSize, recommendations);
+    }
+
+    private boolean hasEnoughCandidateBoards(Map<Long, Board> latestBoardByMemberId, Tier tier, int fetchSize) {
+        return latestBoardByMemberId.values().stream()
+                .filter(board -> matchesTier(board, tier))
+                .count() >= fetchSize;
+    }
+
+    private boolean matchesTier(Board board, Tier tier) {
+        if (tier == null) {
+            return true;
+        }
+
+        Tier boardTier = board.getGameMode() == com.gamegoo.gamegoo_v2.matching.domain.GameMode.FREE
+                ? board.getMember().getFreeTier()
+                : board.getMember().getSoloTier();
+        return boardTier == tier;
+    }
+
+    private Comparator<RollBtiRecommendedMemberResponse> getRecommendationComparator(
+            RollBtiCompatibilityOrder compatibilityOrder) {
+        Comparator<RollBtiRecommendedMemberResponse> scoreComparator =
+                Comparator.comparingInt(RollBtiRecommendedMemberResponse::getCompatibilityScore);
+
+        if (compatibilityOrder != RollBtiCompatibilityOrder.LOW) {
+            scoreComparator = scoreComparator.reversed();
+        }
+
+        return scoreComparator
+                .thenComparing(RollBtiRecommendedMemberResponse::getActivityTime,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(RollBtiRecommendedMemberResponse::getBoardId, Comparator.reverseOrder());
+    }
+
+    private List<ChampionStatsResponse> getRecommendedChampionStats(Member member) {
+        if (member.getMemberChampionList() == null) {
+            return List.of();
+        }
+
+        return member.getMemberChampionList().stream()
+                .filter(memberChampion -> memberChampion.getGames() > 0)
+                .sorted(Comparator.comparingInt(MemberChampion::getGames).reversed())
+                .limit(4)
+                .map(ChampionStatsResponse::from)
+                .toList();
     }
 
     private Map<Long, RollBtiType> getTargetTypeByMemberId(List<Board> boards) {

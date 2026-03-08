@@ -2,13 +2,16 @@ package com.gamegoo.gamegoo_v2.rollbti.dto.response;
 
 import com.gamegoo.gamegoo_v2.account.member.domain.Mike;
 import com.gamegoo.gamegoo_v2.account.member.domain.Position;
+import com.gamegoo.gamegoo_v2.content.board.dto.response.ChampionStatsResponse;
 import com.gamegoo.gamegoo_v2.matching.domain.GameMode;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiType;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -55,6 +58,9 @@ public class RollBtiRecommendedMemberResponse {
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime activityTime;
 
+    @ArraySchema(schema = @Schema(implementation = ChampionStatsResponse.class))
+    private List<ChampionStatsResponse> championStatsResponseList;
+
     public static RollBtiRecommendedMemberResponse of(
             Long boardId,
             Long memberId,
@@ -69,7 +75,8 @@ public class RollBtiRecommendedMemberResponse {
             String content,
             RollBtiType memberType,
             Integer compatibilityScore,
-            LocalDateTime activityTime) {
+            LocalDateTime activityTime,
+            List<ChampionStatsResponse> championStatsResponseList) {
         return RollBtiRecommendedMemberResponse.builder()
                 .boardId(boardId)
                 .memberId(memberId)
@@ -85,7 +92,7 @@ public class RollBtiRecommendedMemberResponse {
                 .memberType(memberType)
                 .compatibilityScore(compatibilityScore)
                 .activityTime(activityTime)
+                .championStatsResponseList(championStatsResponseList)
                 .build();
     }
 }
-

@@ -2,9 +2,11 @@ package com.gamegoo.gamegoo_v2.rollbti.controller;
 
 import com.gamegoo.gamegoo_v2.account.auth.annotation.AuthMember;
 import com.gamegoo.gamegoo_v2.account.member.domain.Member;
+import com.gamegoo.gamegoo_v2.account.member.domain.Tier;
 import com.gamegoo.gamegoo_v2.core.common.ApiResponse;
 import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
+import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiCompatibilityOrder;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiSaveRequest;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiProfileResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationResponse;
@@ -57,6 +59,8 @@ public class RollBtiController {
     @Operation(summary = "내 롤BTI 기반 추천 API",
             description = "회원의 롤BTI 타입 기반으로 최근 게시글 유저를 궁합 점수 순으로 추천합니다.")
     @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
+    @Parameter(name = "compatibilityOrder", description = "궁합 정렬 순서(HIGH, LOW)")
+    @Parameter(name = "tier", description = "티어 필터")
     @GetMapping("/me/recommendations")
     @ApiErrorCodes({
             ErrorCode.UNAUTHORIZED_EXCEPTION,
@@ -65,7 +69,10 @@ public class RollBtiController {
             ErrorCode.ROLL_BTI_SIZE_BAD_REQUEST
     })
     public ApiResponse<RollBtiRecommendationResponse> getMyRecommendations(@AuthMember Member member,
-                                                                           @RequestParam(required = false) Integer size) {
-        return ApiResponse.ok(rollBtiFacadeService.getMyRecommendations(member, size));
+                                                                           @RequestParam(required = false) Integer size,
+                                                                           @RequestParam(required = false)
+                                                                           RollBtiCompatibilityOrder compatibilityOrder,
+                                                                           @RequestParam(required = false) Tier tier) {
+        return ApiResponse.ok(rollBtiFacadeService.getMyRecommendations(member, size, compatibilityOrder, tier));
     }
 }
