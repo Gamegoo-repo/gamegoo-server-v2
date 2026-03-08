@@ -35,9 +35,14 @@ jobs:
         run: |
           docker rm -f gamegoo-api-v2-prod || true
 
+      - name: Build jar
+        run: |
+          chmod +x ./gradlew
+          ./gradlew clean bootJar
+
       - name: Build image
         run: |
-          docker build -t gamegoo-api-v2:prod .
+          docker build -t gamegoo-api-v2:prod -f Dockerfile-prod .
 
       - name: Run container
         run: |
