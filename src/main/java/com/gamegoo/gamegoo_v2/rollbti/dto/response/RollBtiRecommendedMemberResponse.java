@@ -3,7 +3,6 @@ package com.gamegoo.gamegoo_v2.rollbti.dto.response;
 import com.gamegoo.gamegoo_v2.account.member.domain.Mike;
 import com.gamegoo.gamegoo_v2.account.member.domain.Position;
 import com.gamegoo.gamegoo_v2.content.board.dto.response.ChampionStatsResponse;
-import com.gamegoo.gamegoo_v2.matching.domain.GameMode;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiType;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,9 +15,6 @@ import java.util.List;
 @Getter
 @Builder
 public class RollBtiRecommendedMemberResponse {
-
-    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-    private Long boardId;
 
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private Long memberId;
@@ -35,9 +31,6 @@ public class RollBtiRecommendedMemberResponse {
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private Integer mannerLevel;
 
-    @Schema(ref = "#/components/schemas/GameMode", requiredMode = Schema.RequiredMode.REQUIRED)
-    private GameMode gameMode;
-
     @Schema(ref = "#/components/schemas/Position", requiredMode = Schema.RequiredMode.REQUIRED)
     private Position mainP;
 
@@ -47,8 +40,6 @@ public class RollBtiRecommendedMemberResponse {
     @Schema(ref = "#/components/schemas/Mike", requiredMode = Schema.RequiredMode.REQUIRED)
     private Mike mike;
 
-    private String content;
-
     @Schema(ref = "#/components/schemas/RollBtiType")
     private RollBtiType memberType;
 
@@ -56,42 +47,36 @@ public class RollBtiRecommendedMemberResponse {
     private Integer compatibilityScore;
 
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-    private LocalDateTime activityTime;
+    private LocalDateTime updatedAt;
 
     @ArraySchema(schema = @Schema(implementation = ChampionStatsResponse.class))
     private List<ChampionStatsResponse> championStatsResponseList;
 
     public static RollBtiRecommendedMemberResponse of(
-            Long boardId,
             Long memberId,
             String gameName,
             String tag,
             Integer profileImage,
             Integer mannerLevel,
-            GameMode gameMode,
             Position mainP,
             Position subP,
             Mike mike,
-            String content,
             RollBtiType memberType,
             Integer compatibilityScore,
-            LocalDateTime activityTime,
+            LocalDateTime updatedAt,
             List<ChampionStatsResponse> championStatsResponseList) {
         return RollBtiRecommendedMemberResponse.builder()
-                .boardId(boardId)
                 .memberId(memberId)
                 .gameName(gameName)
                 .tag(tag)
                 .profileImage(profileImage)
                 .mannerLevel(mannerLevel)
-                .gameMode(gameMode)
                 .mainP(mainP)
                 .subP(subP)
                 .mike(mike)
-                .content(content)
                 .memberType(memberType)
                 .compatibilityScore(compatibilityScore)
-                .activityTime(activityTime)
+                .updatedAt(updatedAt)
                 .championStatsResponseList(championStatsResponseList)
                 .build();
     }

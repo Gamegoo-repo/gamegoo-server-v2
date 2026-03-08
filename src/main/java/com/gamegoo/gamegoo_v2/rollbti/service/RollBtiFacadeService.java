@@ -8,8 +8,6 @@ import com.gamegoo.gamegoo_v2.account.member.domain.MemberChampion;
 import com.gamegoo.gamegoo_v2.account.member.domain.Tier;
 import com.gamegoo.gamegoo_v2.account.member.repository.MemberRepository;
 import com.gamegoo.gamegoo_v2.content.board.dto.response.ChampionStatsResponse;
-import com.gamegoo.gamegoo_v2.content.board.domain.Board;
-import com.gamegoo.gamegoo_v2.content.board.repository.BoardRepository;
 import com.gamegoo.gamegoo_v2.core.exception.MemberException;
 import com.gamegoo.gamegoo_v2.core.exception.RollBtiException;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
@@ -39,12 +37,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -73,7 +67,6 @@ public class RollBtiFacadeService {
     private static final String RESULT_PAYLOAD_DESERIALIZATION_FAILED_MESSAGE = "롤BTI 결과 payload 역직렬화에 실패했습니다.";
 
     private final MemberRepository memberRepository;
-    private final BoardRepository boardRepository;
     private final MemberRollBtiProfileRepository memberRollBtiProfileRepository;
     private final RollBtiEventRepository rollBtiEventRepository;
     private final RollBtiGuestResultRepository rollBtiGuestResultRepository;
@@ -183,80 +176,43 @@ public class RollBtiFacadeService {
         int normalizedSize = normalizeSize(size);
         int fetchSize = normalizeFetchSize(normalizedSize);
 
-        Map<Long, Board> latestBoardByMemberId = new LinkedHashMap<>();
-        int page = 0;
-
-        while (!hasEnoughCandidateBoards(latestBoardByMemberId, tier, fetchSize)) {
-            List<Board> recentBoards = boardRepository.findRecentBoardsWithMember(PageRequest.of(page, fetchSize));
-            if (recentBoards.isEmpty()) {
-                break;
-            }
-
-            recentBoards.stream()
-                    .filter(board -> board.getMember() != null)
-                    .filter(board -> excludeMemberId == null || !Objects.equals(board.getMember().getId(), excludeMemberId))
-                    .forEach(board -> latestBoardByMemberId.putIfAbsent(board.getMember().getId(), board));
-
-            if (recentBoards.size() < fetchSize) {
-                break;
-            }
-
-            page++;
-        }
-
-        List<Board> boards = latestBoardByMemberId.values().stream()
-                .filter(board -> matchesTier(board, tier))
-                .toList();
-
-        Map<Long, RollBtiType> targetTypeByMemberId = getTargetTypeByMemberId(boards);
+        List<MemberRollBtiProfile> candidateProfiles = memberRollBtiProfileRepository.findRecommendationCandidates(
+                tier,
+                excludeMemberId,
+                PageRequest.of(0, fetchSize)
+        );
         Set<RollBtiType> goodMatches = rollBtiCatalogService.getGoodMatches(requesterType);
         Set<RollBtiType> badMatches = rollBtiCatalogService.getBadMatches(requesterType);
 
-        List<RollBtiRecommendedMemberResponse> recommendations = boards.stream()
-                .map(board -> {
-                    Long memberId = board.getMember().getId();
-                    RollBtiType targetType = targetTypeByMemberId.get(memberId);
-                    int compatibilityScore = calculateCompatibilityScore(requesterType, targetType, goodMatches,
-                            badMatches);
+        List<RollBtiRecommendedMemberResponse> recommendations = candidateProfiles.stream()
+                .map(profile -> {
+                    Member targetMember = profile.getMember();
+                    RollBtiType targetType = profile.getRollBtiType();
+                    int compatibilityScore = calculateCompatibilityScore(
+                            requesterType,
+                            targetType,
+                            goodMatches,
+                            badMatches
+                    );
                     return RollBtiRecommendedMemberResponse.of(
-                            board.getId(),
-                            memberId,
-                            board.getMember().getGameName(),
-                            board.getMember().getTag(),
-                            board.getMember().getProfileImage(),
-                            board.getMember().getMannerLevel(),
-                            board.getGameMode(),
-                            board.getMainP(),
-                            board.getSubP(),
-                            board.getMike(),
-                            board.getContent(),
+                            targetMember.getId(),
+                            targetMember.getGameName(),
+                            targetMember.getTag(),
+                            targetMember.getProfileImage(),
+                            targetMember.getMannerLevel(),
+                            targetMember.getMainP(),
+                            targetMember.getSubP(),
+                            targetMember.getMike(),
                             targetType,
                             compatibilityScore,
-                            board.getActivityTime(),
-                            getRecommendedChampionStats(board.getMember()));
+                            getRecommendationUpdatedAt(profile),
+                            getRecommendedChampionStats(targetMember));
                 })
                 .sorted(getRecommendationComparator(compatibilityOrder))
                 .limit(normalizedSize)
                 .collect(Collectors.toList());
 
         return RollBtiRecommendationResponse.of(requesterType, normalizedSize, recommendations);
-    }
-
-    private boolean hasEnoughCandidateBoards(Map<Long, Board> latestBoardByMemberId, Tier tier, int fetchSize) {
-        return latestBoardByMemberId.values().stream()
-                .filter(board -> matchesTier(board, tier))
-                .count() >= fetchSize;
-    }
-
-    private boolean matchesTier(Board board, Tier tier) {
-        if (tier == null) {
-            return true;
-        }
-
-        Tier boardTier = board.getGameMode() == com.gamegoo.gamegoo_v2.matching.domain.GameMode.FREE
-                ? board.getMember().getFreeTier()
-                : board.getMember().getSoloTier();
-        return boardTier == tier;
     }
 
     private Comparator<RollBtiRecommendedMemberResponse> getRecommendationComparator(
@@ -269,9 +225,9 @@ public class RollBtiFacadeService {
         }
 
         return scoreComparator
-                .thenComparing(RollBtiRecommendedMemberResponse::getActivityTime,
+                .thenComparing(RollBtiRecommendedMemberResponse::getUpdatedAt,
                         Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(RollBtiRecommendedMemberResponse::getBoardId, Comparator.reverseOrder());
+                .thenComparing(RollBtiRecommendedMemberResponse::getMemberId, Comparator.reverseOrder());
     }
 
     private List<ChampionStatsResponse> getRecommendedChampionStats(Member member) {
@@ -287,20 +243,8 @@ public class RollBtiFacadeService {
                 .toList();
     }
 
-    private Map<Long, RollBtiType> getTargetTypeByMemberId(List<Board> boards) {
-        Set<Long> memberIds = boards.stream()
-                .map(board -> board.getMember().getId())
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        if (memberIds.isEmpty()) {
-            return Map.of();
-        }
-
-        return memberRollBtiProfileRepository.findAllByMember_IdIn(memberIds).stream()
-                .collect(Collectors.toMap(
-                        profile -> profile.getMember().getId(),
-                        MemberRollBtiProfile::getRollBtiType,
-                        (existing, ignored) -> existing));
+    private java.time.LocalDateTime getRecommendationUpdatedAt(MemberRollBtiProfile profile) {
+        return profile.getUpdatedAt() != null ? profile.getUpdatedAt() : profile.getCreatedAt();
     }
 
     private int calculateCompatibilityScore(RollBtiType requesterType, RollBtiType targetType,

@@ -78,8 +78,8 @@ public class RollBtiInternalController {
         return ApiResponse.ok(rollBtiFacadeService.getCompatibility(type));
     }
 
-    @Operation(summary = "타입 기반 추천 유저(게시글) 조회 API",
-            description = "type 기준으로 최근 게시글 유저를 궁합 점수 순으로 반환합니다.")
+    @Operation(summary = "타입 기반 추천 유저 조회 API",
+            description = "type 기준으로 롤BTI 회원 카드를 궁합 점수 순으로 반환합니다.")
     @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
     @Parameter(name = "compatibilityOrder", description = "궁합 정렬 순서(HIGH, LOW)")
     @Parameter(name = "tier", description = "티어 필터")

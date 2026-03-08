@@ -57,7 +57,7 @@ public class RollBtiController {
     }
 
     @Operation(summary = "내 롤BTI 기반 추천 API",
-            description = "회원의 롤BTI 타입 기반으로 최근 게시글 유저를 궁합 점수 순으로 추천합니다.")
+            description = "회원의 롤BTI 타입 기반으로 다른 롤BTI 회원 카드를 궁합 순으로 추천합니다.")
     @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
     @Parameter(name = "compatibilityOrder", description = "궁합 정렬 순서(HIGH, LOW)")
     @Parameter(name = "tier", description = "티어 필터")
