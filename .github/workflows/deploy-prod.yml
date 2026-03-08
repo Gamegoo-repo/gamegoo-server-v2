@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, macOS, ARM64, gamegoo, prod]
+    runs-on: [self-hosted, macOS, ARM64, macmini]
 
     steps:
       - name: Checkout
