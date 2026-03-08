@@ -38,6 +38,15 @@ jobs:
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
           EOF
 
+      - name: Prepare Docker config for CI
+        run: |
+          mkdir -p "$RUNNER_TEMP/docker-config"
+          cat > "$RUNNER_TEMP/docker-config/config.json" <<EOF
+          {
+            "auths": {}
+          }
+          EOF
+
       - name: Stop old container
         run: |
           docker rm -f gamegoo-api-v2-prod || true
@@ -48,10 +57,14 @@ jobs:
           ./gradlew clean bootJar
 
       - name: Build image
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
         run: |
           docker build -t gamegoo-api-v2:prod -f Dockerfile-prod .
 
       - name: Run container
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
         run: |
           docker run -d \
             --name gamegoo-api-v2-prod \
