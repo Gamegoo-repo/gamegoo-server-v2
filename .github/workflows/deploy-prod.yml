@@ -36,6 +36,14 @@ jobs:
           GMAIL_PWD=${{ secrets.GMAIL_PWD }}
           RIOT_API=${{ secrets.RIOT_API }}
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+          SOCKET_SERVER_URL=${{ secrets.SOCKET_SERVER_URL }}
+          FRONT_URL=${{ secrets.FRONT_URL }}
+          CLIENT_ID=${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET=${{ secrets.CLIENT_SECRET }}
+          RSO_REDIRECT_URI=${{ secrets.PROD_RSO_REDIRECT_URI }}
+          DISCORD_MONITORING_WEBHOOK_URL_PROD=${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_PROD }}
+          DISCORD_SCHEDULER_WEBHOOK=${{ secrets.DISCORD_SCHEDULER_WEBHOOK }}
+          ADMIN_COMMON_PASSWORD=${{ secrets.ADMIN_COMMON_PASSWORD }}
           EOF
 
       - name: Prepare Docker config for CI
@@ -67,11 +75,19 @@ jobs:
           DOCKER_CONFIG: ${{ runner.temp }}/docker-config
         run: |
           docker run -d \
+            -p 8080:8080 \
             --name gamegoo-api-v2-prod \
             --restart always \
+            -v ~/apps/gamegoo/logs:/app/logs \
             --env-file ~/apps/gamegoo/env/.env.prod \
-            -p 8080:8080 \
             gamegoo-api-v2:prod
+
+      - name: Verify container is running
+        run: |
+          sleep 10
+          docker ps
+          docker logs --tail=200 gamegoo-api-v2-prod || true
+          docker inspect gamegoo-api-v2-prod --format='{{.State.Status}} {{.State.ExitCode}} {{.State.Error}}'
 
       - name: Cleanup
         run: |
