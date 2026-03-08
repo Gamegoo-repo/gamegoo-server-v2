@@ -7,7 +7,8 @@ on:
       - main
   push:
     branches:
-      - main  # main 브랜치에 직접 푸시될 때도 실행
+      - main
+      - GM9-36
   workflow_dispatch:
 
 jobs:
@@ -76,38 +77,52 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }} # 이미지 태그
           platforms: linux/arm64
 
+      - name: cloudflared 설치
+        run: |
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
 
       - name: 홈서버(맥미니)에 배포 (Cloudflare SSH)
         env:
           DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
-          ssh -o StrictHostKeyChecking=no \
-              -o ProxyCommand="cloudflared access ssh --hostname ssh.gamegoo.co.kr" \
-              macmini@ssh.gamegoo.co.kr << 'EOF'
-            docker pull $DOCKER_IMAGE
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          ssh -i ~/.ssh/id_rsa \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o ProxyCommand="cloudflared access ssh --hostname %h --id ${CF_ACCESS_CLIENT_ID} --secret ${CF_ACCESS_CLIENT_SECRET}" \
+              macmini@ssh.gamegoo.co.kr <<EOF
+            docker pull "${DOCKER_IMAGE}"
             docker rm -f gamegoo-api-v2-prod || true
             docker run -d \
               --name gamegoo-api-v2-prod \
               -p 8080:8080 \
               --restart=always \
               -e SPRING_PROFILES_ACTIVE=prod \
-              -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
-              -e RDS_PRIVATE_IP=${{ secrets.RDS_PRIVATE_IP }} \
-              -e RDS_PORT=${{ secrets.RDS_PORT }} \
-              -e PROD_DB_SCHEMA_NAME=${{ secrets.PROD_DB_SCHEMA_NAME }} \
-              -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
-              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
-              -e GMAIL_PWD=${{ secrets.GMAIL_PWD }} \
-              -e RIOT_API=${{ secrets.RIOT_API }} \
-              -e SOCKET_SERVER_URL=${{ secrets.SOCKET_SERVER_URL }} \
-              -e FRONT_URL=${{ secrets.FRONT_URL }} \
-              -e CLIENT_ID=${{ secrets.CLIENT_ID }} \
-              -e CLIENT_SECRET=${{ secrets.CLIENT_SECRET }} \
-              -e RSO_REDIRECT_URI=${{ secrets.PROD_RSO_REDIRECT_URI }} \
-              -e DISCORD_MONITORING_WEBHOOK_URL_PROD=${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_PROD }} \
-              -e DISCORD_SCHEDULER_WEBHOOK=${{ secrets.DISCORD_SCHEDULER_WEBHOOK }} \
-              -e ADMIN_COMMON_PASSWORD=${{ secrets.ADMIN_COMMON_PASSWORD }} \
-              $DOCKER_IMAGE
+              -e JWT_SECRET='${{ secrets.JWT_SECRET }}' \
+              -e RDS_PRIVATE_IP='${{ secrets.RDS_PRIVATE_IP }}' \
+              -e RDS_PORT='${{ secrets.RDS_PORT }}' \
+              -e PROD_DB_SCHEMA_NAME='${{ secrets.PROD_DB_SCHEMA_NAME }}' \
+              -e DB_USERNAME='${{ secrets.DB_USERNAME }}' \
+              -e DB_PASSWORD='${{ secrets.DB_PASSWORD }}' \
+              -e GMAIL_PWD='${{ secrets.GMAIL_PWD }}' \
+              -e RIOT_API='${{ secrets.RIOT_API }}' \
+              -e SOCKET_SERVER_URL='${{ secrets.SOCKET_SERVER_URL }}' \
+              -e FRONT_URL='${{ secrets.FRONT_URL }}' \
+              -e CLIENT_ID='${{ secrets.CLIENT_ID }}' \
+              -e CLIENT_SECRET='${{ secrets.CLIENT_SECRET }}' \
+              -e RSO_REDIRECT_URI='${{ secrets.PROD_RSO_REDIRECT_URI }}' \
+              -e DISCORD_MONITORING_WEBHOOK_URL_PROD='${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_PROD }}' \
+              -e DISCORD_SCHEDULER_WEBHOOK='${{ secrets.DISCORD_SCHEDULER_WEBHOOK }}' \
+              -e ADMIN_COMMON_PASSWORD='${{ secrets.ADMIN_COMMON_PASSWORD }}' \
+              "${DOCKER_IMAGE}"
           EOF
 
       # 8. 기존 Docker 이미지 삭제
