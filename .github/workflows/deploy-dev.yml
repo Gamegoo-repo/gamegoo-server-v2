@@ -30,7 +30,7 @@ jobs:
           JWT_SECRET=${{ secrets.JWT_SECRET }}
           RDS_PRIVATE_IP=${{ secrets.RDS_PRIVATE_IP }}
           RDS_PORT=${{ secrets.RDS_PORT }}
-          PROD_DB_SCHEMA_NAME=${{ secrets.PROD_DB_SCHEMA_NAME }}
+          QA_DB_SCHEMA_NAME=${{ secrets.QA_DB_SCHEMA_NAME }}
           DB_USERNAME=${{ secrets.DB_USERNAME }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           GMAIL_PWD=${{ secrets.GMAIL_PWD }}
@@ -41,7 +41,7 @@ jobs:
           CLIENT_ID=${{ secrets.CLIENT_ID }}
           CLIENT_SECRET=${{ secrets.CLIENT_SECRET }}
           RSO_REDIRECT_URI=${{ secrets.DEV_RSO_REDIRECT_URI }}
-          DISCORD_MONITORING_WEBHOOK_URL_PROD=${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_PROD }}
+          DISCORD_MONITORING_WEBHOOK_URL_QA=${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_QA }}
           DISCORD_SCHEDULER_WEBHOOK=${{ secrets.DISCORD_SCHEDULER_WEBHOOK }}
           ADMIN_COMMON_PASSWORD=${{ secrets.ADMIN_COMMON_PASSWORD }}
           EOF
