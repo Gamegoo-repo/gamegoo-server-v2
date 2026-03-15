@@ -35,7 +35,8 @@ public class SocketEventListener {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleSocketNewNotificationEvent(SocketNewNotificationEvent event) {
-        socketService.emitNewNotification(event.getMemberId());
+        socketService.emitNewNotification(event.getMemberId(), event.getNotificationId(), event.getNotificationType(),
+                event.getContent(), event.getPageUrl(), event.isRead());
     }
 
 }

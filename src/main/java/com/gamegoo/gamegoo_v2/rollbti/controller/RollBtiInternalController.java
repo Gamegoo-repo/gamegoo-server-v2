@@ -1,8 +1,10 @@
 package com.gamegoo.gamegoo_v2.rollbti.controller;
 
+import com.gamegoo.gamegoo_v2.account.member.domain.Tier;
 import com.gamegoo.gamegoo_v2.core.common.ApiResponse;
 import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
+import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiCompatibilityOrder;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiType;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiEventRequest;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiGuestResultSaveRequest;
@@ -76,9 +78,11 @@ public class RollBtiInternalController {
         return ApiResponse.ok(rollBtiFacadeService.getCompatibility(type));
     }
 
-    @Operation(summary = "타입 기반 추천 유저(게시글) 조회 API",
-            description = "type 기준으로 최근 게시글 유저를 궁합 점수 순으로 반환합니다.")
+    @Operation(summary = "타입 기반 추천 유저 조회 API",
+            description = "type 기준으로 롤BTI 회원 카드를 궁합 점수 순으로 반환합니다.")
     @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
+    @Parameter(name = "compatibilityOrder", description = "궁합 정렬 순서(HIGH, LOW)")
+    @Parameter(name = "tier", description = "티어 필터")
     @Parameter(name = "excludeMemberId", description = "추천에서 제외할 memberId(선택)")
     @GetMapping("/types/{type}/recommendations")
     @ApiErrorCodes({
@@ -88,10 +92,13 @@ public class RollBtiInternalController {
     public ApiResponse<RollBtiRecommendationResponse> getRecommendationsByType(
             @PathVariable RollBtiType type,
             @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) RollBtiCompatibilityOrder compatibilityOrder,
+            @RequestParam(required = false) Tier tier,
             @RequestParam(required = false)
             @Min(value = 1, message = "excludeMemberId는 1 이상이어야 합니다.")
             Long excludeMemberId) {
-        return ApiResponse.ok(rollBtiFacadeService.getRecommendationsByType(type, size, excludeMemberId));
+        return ApiResponse.ok(
+                rollBtiFacadeService.getRecommendationsByType(type, size, compatibilityOrder, tier, excludeMemberId));
     }
 
     @Operation(summary = "롤BTI 누적 참여 인원 조회 API",

@@ -120,10 +120,19 @@ public class SocketService {
      *
      * @param memberId
      */
-    public void emitNewNotification(Long memberId) {
+    public void emitNewNotification(Long memberId, Long notificationId, int notificationType, String content,
+                                    String pageUrl, boolean read) {
         String url = SOCKET_SERVER_URL + NEW_NOTIFICATION_URL + memberId.toString();
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("notificationId", notificationId);
+        requestBody.put("notificationType", notificationType);
+        requestBody.put("content", content);
+        requestBody.put("pageUrl", pageUrl);
+        requestBody.put("read", read);
+
         try {
-            ResponseEntity<String> response = restTemplate.postForEntity(url, null, String.class);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, requestBody, String.class);
+
 
             log.info("response of emitNewNotification: {}", response.getStatusCode());
             if (!response.getStatusCode().equals(HttpStatus.OK)) {

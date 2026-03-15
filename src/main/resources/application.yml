@@ -81,7 +81,7 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        show_sql: true
+        show_sql: false
 
   datasource:
     url: jdbc:mysql://${DB_URL}:${RDS_PORT}/${DB_SCHEMA_NAME}?useSSL=true

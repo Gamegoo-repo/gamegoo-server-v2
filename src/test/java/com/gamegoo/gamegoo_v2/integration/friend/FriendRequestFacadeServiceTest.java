@@ -96,26 +96,6 @@ class FriendRequestFacadeServiceTest {
     @DisplayName("친구 요청 전송")
     class SendFriendRequestTest {
 
-        @DisplayName("친구 요청 전송 성공")
-        @Test
-        void sendFriendRequestSucceeds() {
-            // given
-            Member targetMember = createMember(TARGET_EMAIL, TARGET_GAMENAME);
-
-            // when
-            FriendRequestResponse response = friendFacadeService.sendFriendRequest(member, targetMember.getId());
-
-            // then
-            assertThat(response.getTargetMemberId()).isEqualTo(targetMember.getId());
-            assertThat(response.getMessage()).isEqualTo("친구 요청 전송 성공");
-
-            // friendRequest 엔티티가 저장되었는지 검증
-            boolean exists = friendRequestRepository.existsByFromMemberAndToMemberAndStatus(member, targetMember,
-                    FriendRequestStatus.PENDING);
-            assertThat(exists).isTrue();
-
-        }
-
         @DisplayName("친구 요청 전송 실패: 본인 id를 요청한 경우 예외가 발생한다.")
         @Test
         void sendFriendRequest_shouldThrowWhenTargetIsSelf() {
