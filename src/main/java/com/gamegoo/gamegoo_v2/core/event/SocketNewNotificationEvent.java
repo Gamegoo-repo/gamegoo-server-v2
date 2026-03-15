@@ -8,5 +8,10 @@ import lombok.Getter;
 public class SocketNewNotificationEvent {
 
     private final Long memberId;
+    private final Long notificationId;
+    private final int notificationType;
+    private final String content;
+    private final String pageUrl;
+    private final boolean read;
 
 }
