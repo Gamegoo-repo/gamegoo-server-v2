@@ -7,6 +7,8 @@ import com.gamegoo.gamegoo_v2.account.member.repository.MemberRepository;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiCompatibilityOrder;
 import com.gamegoo.gamegoo_v2.rollbti.domain.MemberRollBtiProfile;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiType;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiPublicRecommendationCursorResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiPublicRecommendationResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationResponse;
 import com.gamegoo.gamegoo_v2.rollbti.repository.MemberRollBtiProfileRepository;
 import com.gamegoo.gamegoo_v2.rollbti.service.RollBtiFacadeService;
@@ -109,13 +111,60 @@ class RollBtiFacadeServiceTest {
         assertThat(secondPage.isHasNext()).isFalse();
     }
 
+    @Test
+    @DisplayName("비회원 롤BTI 피드는 타입 없이 이름순으로 회원 카드를 반환한다")
+    void getPublicRecommendations_shouldReturnAlphabeticalCards() {
+        Member charlie = memberRepository.save(createMember("charlie", "KR3", Tier.GOLD));
+        Member alpha = memberRepository.save(createMember("alpha", "KR1", Tier.GOLD));
+        Member bravo = memberRepository.save(createMember("bravo", "KR2", Tier.GOLD));
+
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(charlie, RollBtiType.ADTB));
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(alpha, RollBtiType.ADCI));
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(bravo, RollBtiType.FSCB));
+
+        RollBtiPublicRecommendationResponse response = rollBtiFacadeService.getPublicRecommendations(20, 1, Tier.GOLD);
+
+        assertThat(response.getRecommendations())
+                .extracting(recommendation -> recommendation.getGameName())
+                .containsExactly("alpha", "bravo", "charlie");
+        assertThat(response.getRecommendations())
+                .extracting(recommendation -> recommendation.getRollBtiType())
+                .containsExactly(RollBtiType.ADCI, RollBtiType.FSCB, RollBtiType.ADTB);
+    }
+
+    @Test
+    @DisplayName("비회원 롤BTI 피드 커서 조회는 compatibilityScore 없이 다음 커서를 반환한다")
+    void getPublicRecommendationsWithCursor_shouldSupportCursorPaging() {
+        for (int i = 0; i < 25; i++) {
+            Member member = memberRepository.save(createMember(String.format("member%02d", i), "KR" + i, Tier.GOLD));
+            memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(member, RollBtiType.ADCI));
+        }
+
+        RollBtiPublicRecommendationCursorResponse firstPage =
+                rollBtiFacadeService.getPublicRecommendationsWithCursor(20, null, Tier.GOLD);
+        RollBtiPublicRecommendationCursorResponse secondPage =
+                rollBtiFacadeService.getPublicRecommendationsWithCursor(20, firstPage.getNextCursorMemberId(), Tier.GOLD);
+
+        assertThat(firstPage.getRecommendations()).hasSize(20);
+        assertThat(firstPage.isHasNext()).isTrue();
+        assertThat(firstPage.getNextCursorMemberId()).isNotNull();
+
+        assertThat(secondPage.getRecommendations()).hasSize(5);
+        assertThat(secondPage.isHasNext()).isFalse();
+        assertThat(secondPage.getNextCursorMemberId()).isNull();
+    }
+
     private Member createMember(int index, Tier tier) {
+        return createMember("rollbti" + index, "KR" + index, tier);
+    }
+
+    private Member createMember(String gameName, String tag, Tier tier) {
         return Member.createForGeneral(
-                "rollbti" + index + "@test.com",
+                gameName + "@test.com",
                 "password",
                 LoginType.GENERAL,
-                "rollbti" + index,
-                "KR" + index,
+                gameName,
+                tag,
                 tier,
                 1,
                 50.0,
