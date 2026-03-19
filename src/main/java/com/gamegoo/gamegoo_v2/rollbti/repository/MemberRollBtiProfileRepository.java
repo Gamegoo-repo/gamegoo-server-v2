@@ -3,7 +3,6 @@ package com.gamegoo.gamegoo_v2.rollbti.repository;
 import com.gamegoo.gamegoo_v2.account.member.domain.Tier;
 import com.gamegoo.gamegoo_v2.rollbti.domain.MemberRollBtiProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -28,6 +27,5 @@ public interface MemberRollBtiProfileRepository extends JpaRepository<MemberRoll
             """)
     List<MemberRollBtiProfile> findRecommendationCandidates(
             @Param("tier") Tier tier,
-            @Param("excludeMemberId") Long excludeMemberId,
-            Pageable pageable);
+            @Param("excludeMemberId") Long excludeMemberId);
 }
