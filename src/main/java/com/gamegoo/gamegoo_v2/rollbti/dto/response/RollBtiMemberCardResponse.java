@@ -14,7 +14,7 @@ import java.util.List;
 
 @Getter
 @Builder
-public class RollBtiRecommendedMemberResponse {
+public class RollBtiMemberCardResponse {
 
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private Long memberId;
@@ -40,11 +40,8 @@ public class RollBtiRecommendedMemberResponse {
     @Schema(ref = "#/components/schemas/Mike", requiredMode = Schema.RequiredMode.REQUIRED)
     private Mike mike;
 
-    @Schema(ref = "#/components/schemas/RollBtiType")
+    @Schema(ref = "#/components/schemas/RollBtiType", requiredMode = Schema.RequiredMode.REQUIRED)
     private RollBtiType rollBtiType;
-
-    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-    private Integer compatibilityScore;
 
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime updatedAt;
@@ -52,7 +49,7 @@ public class RollBtiRecommendedMemberResponse {
     @ArraySchema(schema = @Schema(implementation = ChampionStatsResponse.class))
     private List<ChampionStatsResponse> championStatsResponseList;
 
-    public static RollBtiRecommendedMemberResponse of(
+    public static RollBtiMemberCardResponse of(
             Long memberId,
             String gameName,
             String tag,
@@ -62,10 +59,9 @@ public class RollBtiRecommendedMemberResponse {
             Position subP,
             Mike mike,
             RollBtiType rollBtiType,
-            Integer compatibilityScore,
             LocalDateTime updatedAt,
             List<ChampionStatsResponse> championStatsResponseList) {
-        return RollBtiRecommendedMemberResponse.builder()
+        return RollBtiMemberCardResponse.builder()
                 .memberId(memberId)
                 .gameName(gameName)
                 .tag(tag)
@@ -75,7 +71,6 @@ public class RollBtiRecommendedMemberResponse {
                 .subP(subP)
                 .mike(mike)
                 .rollBtiType(rollBtiType)
-                .compatibilityScore(compatibilityScore)
                 .updatedAt(updatedAt)
                 .championStatsResponseList(championStatsResponseList)
                 .build();
