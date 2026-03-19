@@ -24,6 +24,7 @@ import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiGuestResultResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiGuestResultSaveResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiParticipationCountResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiProfileResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationCursorResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendedMemberResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiTypeSummaryResponse;
@@ -32,13 +33,13 @@ import com.gamegoo.gamegoo_v2.rollbti.repository.MemberRollBtiProfileRepository;
 import com.gamegoo.gamegoo_v2.rollbti.repository.RollBtiEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -108,19 +109,41 @@ public class RollBtiFacadeService {
     public RollBtiRecommendationResponse getMyRecommendations(
             Member member,
             Integer size,
+            Integer page,
             RollBtiCompatibilityOrder compatibilityOrder,
             Tier tier) {
         RollBtiType type = getProfileOrThrow(member.getId()).getRollBtiType();
-        return getRecommendations(type, size, compatibilityOrder, tier, member.getId());
+        return getRecommendations(type, size, page, compatibilityOrder, tier, member.getId());
+    }
+
+    public RollBtiRecommendationCursorResponse getMyRecommendationsWithCursor(
+            Member member,
+            Integer size,
+            Long cursorMemberId,
+            RollBtiCompatibilityOrder compatibilityOrder,
+            Tier tier) {
+        RollBtiType type = getProfileOrThrow(member.getId()).getRollBtiType();
+        return getRecommendationsWithCursor(type, size, cursorMemberId, compatibilityOrder, tier, member.getId());
     }
 
     public RollBtiRecommendationResponse getRecommendationsByType(
             RollBtiType type,
             Integer size,
+            Integer page,
             RollBtiCompatibilityOrder compatibilityOrder,
             Tier tier,
             Long excludeMemberId) {
-        return getRecommendations(type, size, compatibilityOrder, tier, excludeMemberId);
+        return getRecommendations(type, size, page, compatibilityOrder, tier, excludeMemberId);
+    }
+
+    public RollBtiRecommendationCursorResponse getRecommendationsByTypeWithCursor(
+            RollBtiType type,
+            Integer size,
+            Long cursorMemberId,
+            RollBtiCompatibilityOrder compatibilityOrder,
+            Tier tier,
+            Long excludeMemberId) {
+        return getRecommendationsWithCursor(type, size, cursorMemberId, compatibilityOrder, tier, excludeMemberId);
     }
 
     public RollBtiParticipationCountResponse getParticipationCount() {
@@ -170,21 +193,101 @@ public class RollBtiFacadeService {
     private RollBtiRecommendationResponse getRecommendations(
             RollBtiType requesterType,
             Integer size,
+            Integer page,
             RollBtiCompatibilityOrder compatibilityOrder,
             Tier tier,
             Long excludeMemberId) {
         int normalizedSize = normalizeSize(size);
-        int fetchSize = normalizeFetchSize(normalizedSize);
+        int normalizedPage = normalizePage(page);
 
-        List<MemberRollBtiProfile> candidateProfiles = memberRollBtiProfileRepository.findRecommendationCandidates(
-                tier,
-                excludeMemberId,
-                PageRequest.of(0, fetchSize)
+        List<RollBtiRecommendedMemberResponse> sortedRecommendations =
+                getSortedRecommendations(requesterType, compatibilityOrder, tier, excludeMemberId);
+
+        int startIndex = (normalizedPage - 1) * normalizedSize;
+        if (startIndex >= sortedRecommendations.size()) {
+            return RollBtiRecommendationResponse.of(
+                    requesterType,
+                    normalizedPage,
+                    normalizedSize,
+                    List.of(),
+                    false
+            );
+        }
+
+        int endIndex = Math.min(startIndex + normalizedSize, sortedRecommendations.size());
+        boolean hasNext = endIndex < sortedRecommendations.size();
+        List<RollBtiRecommendedMemberResponse> recommendations = sortedRecommendations.subList(startIndex, endIndex);
+
+        return RollBtiRecommendationResponse.of(
+                requesterType,
+                normalizedPage,
+                normalizedSize,
+                recommendations,
+                hasNext
         );
+    }
+
+    private RollBtiRecommendationCursorResponse getRecommendationsWithCursor(
+            RollBtiType requesterType,
+            Integer size,
+            Long cursorMemberId,
+            RollBtiCompatibilityOrder compatibilityOrder,
+            Tier tier,
+            Long excludeMemberId) {
+        int normalizedSize = normalizeSize(size);
+        List<RollBtiRecommendedMemberResponse> sortedRecommendations =
+                getSortedRecommendations(requesterType, compatibilityOrder, tier, excludeMemberId);
+
+        int startIndex = 0;
+        if (cursorMemberId != null) {
+            int cursorIndex = findCursorIndex(sortedRecommendations, cursorMemberId);
+            if (cursorIndex < 0) {
+                return RollBtiRecommendationCursorResponse.of(
+                        requesterType,
+                        normalizedSize,
+                        List.of(),
+                        false,
+                        null
+                );
+            }
+            startIndex = cursorIndex + 1;
+        }
+
+        if (startIndex >= sortedRecommendations.size()) {
+            return RollBtiRecommendationCursorResponse.of(
+                    requesterType,
+                    normalizedSize,
+                    List.of(),
+                    false,
+                    null
+            );
+        }
+
+        int endIndex = Math.min(startIndex + normalizedSize, sortedRecommendations.size());
+        boolean hasNext = endIndex < sortedRecommendations.size();
+        List<RollBtiRecommendedMemberResponse> recommendations = sortedRecommendations.subList(startIndex, endIndex);
+        Long nextCursorMemberId = hasNext ? recommendations.get(recommendations.size() - 1).getMemberId() : null;
+
+        return RollBtiRecommendationCursorResponse.of(
+                requesterType,
+                normalizedSize,
+                recommendations,
+                hasNext,
+                nextCursorMemberId
+        );
+    }
+
+    private List<RollBtiRecommendedMemberResponse> getSortedRecommendations(
+            RollBtiType requesterType,
+            RollBtiCompatibilityOrder compatibilityOrder,
+            Tier tier,
+            Long excludeMemberId) {
+        List<MemberRollBtiProfile> candidateProfiles = memberRollBtiProfileRepository.findRecommendationCandidates(
+                tier, excludeMemberId);
         Set<RollBtiType> goodMatches = rollBtiCatalogService.getGoodMatches(requesterType);
         Set<RollBtiType> badMatches = rollBtiCatalogService.getBadMatches(requesterType);
 
-        List<RollBtiRecommendedMemberResponse> recommendations = candidateProfiles.stream()
+        return candidateProfiles.stream()
                 .map(profile -> {
                     Member targetMember = profile.getMember();
                     RollBtiType targetType = profile.getRollBtiType();
@@ -209,10 +312,16 @@ public class RollBtiFacadeService {
                             getRecommendedChampionStats(targetMember));
                 })
                 .sorted(getRecommendationComparator(compatibilityOrder))
-                .limit(normalizedSize)
                 .collect(Collectors.toList());
+    }
 
-        return RollBtiRecommendationResponse.of(requesterType, normalizedSize, recommendations);
+    private int findCursorIndex(List<RollBtiRecommendedMemberResponse> recommendations, Long cursorMemberId) {
+        for (int i = 0; i < recommendations.size(); i++) {
+            if (Objects.equals(recommendations.get(i).getMemberId(), cursorMemberId)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private Comparator<RollBtiRecommendedMemberResponse> getRecommendationComparator(
@@ -274,9 +383,14 @@ public class RollBtiFacadeService {
         return Math.min(size, MAX_RECOMMENDATION_SIZE);
     }
 
-    private int normalizeFetchSize(int size) {
-        int rawFetchSize = size * FETCH_MULTIPLIER;
-        return Math.min(MAX_FETCH_SIZE, Math.max(MIN_FETCH_SIZE, rawFetchSize));
+    private int normalizePage(Integer page) {
+        if (page == null) {
+            return 1;
+        }
+        if (page < 1) {
+            throw new RollBtiException(ErrorCode._BAD_REQUEST);
+        }
+        return page;
     }
 
     @Transactional
