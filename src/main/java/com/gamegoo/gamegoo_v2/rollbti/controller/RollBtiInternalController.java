@@ -14,6 +14,7 @@ import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiGuestResultResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiGuestResultSaveResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiParticipationCountResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiProfileResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationCursorResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiTypeSummaryResponse;
 import com.gamegoo.gamegoo_v2.rollbti.service.RollBtiFacadeService;
@@ -81,6 +82,7 @@ public class RollBtiInternalController {
     @Operation(summary = "타입 기반 추천 유저 조회 API",
             description = "type 기준으로 롤BTI 회원 카드를 궁합 점수 순으로 반환합니다.")
     @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
+    @Parameter(name = "page", description = "조회 페이지(기본 1)")
     @Parameter(name = "compatibilityOrder", description = "궁합 정렬 순서(HIGH, LOW)")
     @Parameter(name = "tier", description = "티어 필터")
     @Parameter(name = "excludeMemberId", description = "추천에서 제외할 memberId(선택)")
@@ -92,13 +94,42 @@ public class RollBtiInternalController {
     public ApiResponse<RollBtiRecommendationResponse> getRecommendationsByType(
             @PathVariable RollBtiType type,
             @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) Integer page,
             @RequestParam(required = false) RollBtiCompatibilityOrder compatibilityOrder,
             @RequestParam(required = false) Tier tier,
             @RequestParam(required = false)
             @Min(value = 1, message = "excludeMemberId는 1 이상이어야 합니다.")
             Long excludeMemberId) {
         return ApiResponse.ok(
-                rollBtiFacadeService.getRecommendationsByType(type, size, compatibilityOrder, tier, excludeMemberId));
+                rollBtiFacadeService.getRecommendationsByType(
+                        type, size, page, compatibilityOrder, tier, excludeMemberId));
+    }
+
+    @Operation(summary = "타입 기반 추천 유저 무한스크롤 조회 API",
+            description = "type 기준으로 롤BTI 회원 카드를 커서 방식으로 반환합니다.")
+    @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
+    @Parameter(name = "cursorMemberId", description = "이전 응답의 마지막 memberId")
+    @Parameter(name = "compatibilityOrder", description = "궁합 정렬 순서(HIGH, LOW)")
+    @Parameter(name = "tier", description = "티어 필터")
+    @Parameter(name = "excludeMemberId", description = "추천에서 제외할 memberId(선택)")
+    @GetMapping("/types/{type}/recommendations/cursor")
+    @ApiErrorCodes({
+            ErrorCode.ROLL_BTI_TYPE_NOT_SUPPORTED,
+            ErrorCode.ROLL_BTI_SIZE_BAD_REQUEST,
+            ErrorCode._BAD_REQUEST
+    })
+    public ApiResponse<RollBtiRecommendationCursorResponse> getRecommendationsByTypeWithCursor(
+            @PathVariable RollBtiType type,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) @Min(1) Long cursorMemberId,
+            @RequestParam(required = false) RollBtiCompatibilityOrder compatibilityOrder,
+            @RequestParam(required = false) Tier tier,
+            @RequestParam(required = false)
+            @Min(value = 1, message = "excludeMemberId는 1 이상이어야 합니다.")
+            Long excludeMemberId) {
+        return ApiResponse.ok(
+                rollBtiFacadeService.getRecommendationsByTypeWithCursor(
+                        type, size, cursorMemberId, compatibilityOrder, tier, excludeMemberId));
     }
 
     @Operation(summary = "롤BTI 누적 참여 인원 조회 API",

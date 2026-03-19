@@ -8,6 +8,7 @@ import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiCompatibilityOrder;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiSaveRequest;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationCursorResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiProfileResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationResponse;
 import com.gamegoo.gamegoo_v2.rollbti.service.RollBtiFacadeService;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -59,6 +61,7 @@ public class RollBtiController {
     @Operation(summary = "내 롤BTI 기반 추천 API",
             description = "회원의 롤BTI 타입 기반으로 다른 롤BTI 회원 카드를 궁합 순으로 추천합니다.")
     @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
+    @Parameter(name = "page", description = "조회 페이지(기본 1)")
     @Parameter(name = "compatibilityOrder", description = "궁합 정렬 순서(HIGH, LOW)")
     @Parameter(name = "tier", description = "티어 필터")
     @GetMapping("/me/recommendations")
@@ -70,9 +73,35 @@ public class RollBtiController {
     })
     public ApiResponse<RollBtiRecommendationResponse> getMyRecommendations(@AuthMember Member member,
                                                                            @RequestParam(required = false) Integer size,
+                                                                           @RequestParam(required = false) Integer page,
                                                                            @RequestParam(required = false)
                                                                            RollBtiCompatibilityOrder compatibilityOrder,
                                                                            @RequestParam(required = false) Tier tier) {
-        return ApiResponse.ok(rollBtiFacadeService.getMyRecommendations(member, size, compatibilityOrder, tier));
+        return ApiResponse.ok(rollBtiFacadeService.getMyRecommendations(
+                member, size, page, compatibilityOrder, tier));
+    }
+
+    @Operation(summary = "내 롤BTI 기반 추천 무한스크롤 API",
+            description = "회원의 롤BTI 타입 기반으로 다른 롤BTI 회원 카드를 커서 방식으로 추천합니다.")
+    @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
+    @Parameter(name = "cursorMemberId", description = "이전 응답의 마지막 memberId")
+    @Parameter(name = "compatibilityOrder", description = "궁합 정렬 순서(HIGH, LOW)")
+    @Parameter(name = "tier", description = "티어 필터")
+    @GetMapping("/me/recommendations/cursor")
+    @ApiErrorCodes({
+            ErrorCode.UNAUTHORIZED_EXCEPTION,
+            ErrorCode.MEMBER_NOT_FOUND,
+            ErrorCode.ROLL_BTI_PROFILE_NOT_FOUND,
+            ErrorCode.ROLL_BTI_SIZE_BAD_REQUEST,
+            ErrorCode._BAD_REQUEST
+    })
+    public ApiResponse<RollBtiRecommendationCursorResponse> getMyRecommendationsWithCursor(
+            @AuthMember Member member,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) @Min(1) Long cursorMemberId,
+            @RequestParam(required = false) RollBtiCompatibilityOrder compatibilityOrder,
+            @RequestParam(required = false) Tier tier) {
+        return ApiResponse.ok(rollBtiFacadeService.getMyRecommendationsWithCursor(
+                member, size, cursorMemberId, compatibilityOrder, tier));
     }
 }

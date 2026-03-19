@@ -10,13 +10,10 @@ import java.util.List;
 
 @Getter
 @Builder
-public class RollBtiRecommendationResponse {
+public class RollBtiRecommendationCursorResponse {
 
     @Schema(ref = "#/components/schemas/RollBtiType", requiredMode = Schema.RequiredMode.REQUIRED)
     private RollBtiType requesterType;
-
-    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-    private int page;
 
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private int requestedSize;
@@ -27,21 +24,24 @@ public class RollBtiRecommendationResponse {
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private boolean hasNext;
 
+    @Schema
+    private Long nextCursorMemberId;
+
     @ArraySchema(schema = @Schema(implementation = RollBtiRecommendedMemberResponse.class))
     private List<RollBtiRecommendedMemberResponse> recommendations;
 
-    public static RollBtiRecommendationResponse of(
+    public static RollBtiRecommendationCursorResponse of(
             RollBtiType requesterType,
-            int page,
             int requestedSize,
             List<RollBtiRecommendedMemberResponse> recommendations,
-            boolean hasNext) {
-        return RollBtiRecommendationResponse.builder()
+            boolean hasNext,
+            Long nextCursorMemberId) {
+        return RollBtiRecommendationCursorResponse.builder()
                 .requesterType(requesterType)
-                .page(page)
                 .requestedSize(requestedSize)
                 .count(recommendations.size())
                 .hasNext(hasNext)
+                .nextCursorMemberId(nextCursorMemberId)
                 .recommendations(recommendations)
                 .build();
     }
