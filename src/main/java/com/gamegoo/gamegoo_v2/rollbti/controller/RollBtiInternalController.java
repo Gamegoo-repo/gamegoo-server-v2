@@ -14,6 +14,8 @@ import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiGuestResultResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiGuestResultSaveResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiParticipationCountResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiProfileResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiPublicRecommendationCursorResponse;
+import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiPublicRecommendationResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationCursorResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiTypeSummaryResponse;
@@ -130,6 +132,40 @@ public class RollBtiInternalController {
         return ApiResponse.ok(
                 rollBtiFacadeService.getRecommendationsByTypeWithCursor(
                         type, size, cursorMemberId, compatibilityOrder, tier, excludeMemberId));
+    }
+
+    @Operation(summary = "비회원 롤BTI 회원 카드 목록 조회 API",
+            description = "비회원 롤BTI 피드에서 타입 없이 전체 회원 카드를 이름순으로 반환합니다.")
+    @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
+    @Parameter(name = "page", description = "조회 페이지(기본 1)")
+    @Parameter(name = "tier", description = "티어 필터")
+    @GetMapping("/recommendations")
+    @ApiErrorCodes({
+            ErrorCode.ROLL_BTI_SIZE_BAD_REQUEST,
+            ErrorCode._BAD_REQUEST
+    })
+    public ApiResponse<RollBtiPublicRecommendationResponse> getPublicRecommendations(
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Tier tier) {
+        return ApiResponse.ok(rollBtiFacadeService.getPublicRecommendations(size, page, tier));
+    }
+
+    @Operation(summary = "비회원 롤BTI 회원 카드 무한스크롤 조회 API",
+            description = "비회원 롤BTI 피드에서 타입 없이 전체 회원 카드를 이름순으로 커서 방식 반환합니다.")
+    @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
+    @Parameter(name = "cursorMemberId", description = "이전 응답의 마지막 memberId")
+    @Parameter(name = "tier", description = "티어 필터")
+    @GetMapping("/recommendations/cursor")
+    @ApiErrorCodes({
+            ErrorCode.ROLL_BTI_SIZE_BAD_REQUEST,
+            ErrorCode._BAD_REQUEST
+    })
+    public ApiResponse<RollBtiPublicRecommendationCursorResponse> getPublicRecommendationsWithCursor(
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) @Min(1) Long cursorMemberId,
+            @RequestParam(required = false) Tier tier) {
+        return ApiResponse.ok(rollBtiFacadeService.getPublicRecommendationsWithCursor(size, cursorMemberId, tier));
     }
 
     @Operation(summary = "롤BTI 누적 참여 인원 조회 API",
