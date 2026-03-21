@@ -5,6 +5,7 @@ import com.gamegoo.gamegoo_v2.core.common.ApiResponse;
 import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiCompatibilityOrder;
+import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiRecommendationBucket;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiType;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiEventRequest;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiGuestResultSaveRequest;
@@ -132,6 +133,33 @@ public class RollBtiInternalController {
         return ApiResponse.ok(
                 rollBtiFacadeService.getRecommendationsByTypeWithCursor(
                         type, size, cursorMemberId, compatibilityOrder, tier, excludeMemberId));
+    }
+
+    @Operation(summary = "타입 기반 추천 버킷 무한스크롤 조회 API",
+            description = "type 기준으로 GOOD/NORMAL/BAD 버킷별 롤BTI 회원 카드를 커서 방식으로 반환합니다.")
+    @Parameter(name = "bucket", description = "추천 버킷(GOOD, NORMAL, BAD)")
+    @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
+    @Parameter(name = "cursorMemberId", description = "이전 응답의 마지막 memberId")
+    @Parameter(name = "tier", description = "티어 필터")
+    @Parameter(name = "excludeMemberId", description = "추천에서 제외할 memberId(선택)")
+    @GetMapping("/types/{type}/recommendations/{bucket}/cursor")
+    @ApiErrorCodes({
+            ErrorCode.ROLL_BTI_TYPE_NOT_SUPPORTED,
+            ErrorCode.ROLL_BTI_SIZE_BAD_REQUEST,
+            ErrorCode._BAD_REQUEST
+    })
+    public ApiResponse<RollBtiRecommendationCursorResponse> getRecommendationsByTypeAndBucketWithCursor(
+            @PathVariable RollBtiType type,
+            @PathVariable RollBtiRecommendationBucket bucket,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) @Min(1) Long cursorMemberId,
+            @RequestParam(required = false) Tier tier,
+            @RequestParam(required = false)
+            @Min(value = 1, message = "excludeMemberId는 1 이상이어야 합니다.")
+            Long excludeMemberId) {
+        return ApiResponse.ok(
+                rollBtiFacadeService.getRecommendationsByTypeAndBucketWithCursor(
+                        type, bucket, size, cursorMemberId, tier, excludeMemberId));
     }
 
     @Operation(summary = "비회원 롤BTI 회원 카드 목록 조회 API",

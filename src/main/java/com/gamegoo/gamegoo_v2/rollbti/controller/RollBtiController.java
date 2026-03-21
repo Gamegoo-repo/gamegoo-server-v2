@@ -6,6 +6,7 @@ import com.gamegoo.gamegoo_v2.account.member.domain.Tier;
 import com.gamegoo.gamegoo_v2.core.common.ApiResponse;
 import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
+import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiRecommendationBucket;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiCompatibilityOrder;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiSaveRequest;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationCursorResponse;
@@ -20,6 +21,7 @@ import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -103,5 +105,29 @@ public class RollBtiController {
             @RequestParam(required = false) Tier tier) {
         return ApiResponse.ok(rollBtiFacadeService.getMyRecommendationsWithCursor(
                 member, size, cursorMemberId, compatibilityOrder, tier));
+    }
+
+    @Operation(summary = "내 롤BTI 기반 추천 버킷 무한스크롤 API",
+            description = "회원의 롤BTI 타입 기준으로 GOOD/NORMAL/BAD 버킷별 회원 카드를 커서 방식으로 추천합니다.")
+    @Parameter(name = "bucket", description = "추천 버킷(GOOD, NORMAL, BAD)")
+    @Parameter(name = "size", description = "조회 개수(기본 20, 최대 50)")
+    @Parameter(name = "cursorMemberId", description = "이전 응답의 마지막 memberId")
+    @Parameter(name = "tier", description = "티어 필터")
+    @GetMapping("/me/recommendations/{bucket}/cursor")
+    @ApiErrorCodes({
+            ErrorCode.UNAUTHORIZED_EXCEPTION,
+            ErrorCode.MEMBER_NOT_FOUND,
+            ErrorCode.ROLL_BTI_PROFILE_NOT_FOUND,
+            ErrorCode.ROLL_BTI_SIZE_BAD_REQUEST,
+            ErrorCode._BAD_REQUEST
+    })
+    public ApiResponse<RollBtiRecommendationCursorResponse> getMyRecommendationsByBucketWithCursor(
+            @AuthMember Member member,
+            @PathVariable RollBtiRecommendationBucket bucket,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) @Min(1) Long cursorMemberId,
+            @RequestParam(required = false) Tier tier) {
+        return ApiResponse.ok(rollBtiFacadeService.getMyRecommendationsByBucketWithCursor(
+                member, bucket, size, cursorMemberId, tier));
     }
 }

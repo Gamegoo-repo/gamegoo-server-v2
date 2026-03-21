@@ -6,6 +6,7 @@ import com.gamegoo.gamegoo_v2.account.member.domain.Tier;
 import com.gamegoo.gamegoo_v2.account.member.repository.MemberRepository;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiCompatibilityOrder;
 import com.gamegoo.gamegoo_v2.rollbti.domain.MemberRollBtiProfile;
+import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiRecommendationBucket;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiType;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiPublicRecommendationCursorResponse;
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiPublicRecommendationResponse;
@@ -152,6 +153,37 @@ class RollBtiFacadeServiceTest {
         assertThat(secondPage.getRecommendations()).hasSize(5);
         assertThat(secondPage.isHasNext()).isFalse();
         assertThat(secondPage.getNextCursorMemberId()).isNull();
+    }
+
+    @Test
+    @DisplayName("회원용 추천 버킷 커서 조회는 GOOD/NORMAL/BAD를 독립적으로 반환한다")
+    void getRecommendationsByTypeAndBucketWithCursor_shouldFilterByBucket() {
+        Member sameType = memberRepository.save(createMember("same", "KR1", Tier.GOLD));
+        Member goodType = memberRepository.save(createMember("good", "KR2", Tier.GOLD));
+        Member normalType = memberRepository.save(createMember("normal", "KR3", Tier.GOLD));
+        Member badType = memberRepository.save(createMember("bad", "KR4", Tier.GOLD));
+
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(sameType, RollBtiType.ADCI));
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(goodType, RollBtiType.ADTB));
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(normalType, RollBtiType.ASCB));
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(badType, RollBtiType.FDTB));
+
+        var goodResponse = rollBtiFacadeService.getRecommendationsByTypeAndBucketWithCursor(
+                RollBtiType.ADCI, RollBtiRecommendationBucket.GOOD, 20, null, Tier.GOLD, null);
+        var normalResponse = rollBtiFacadeService.getRecommendationsByTypeAndBucketWithCursor(
+                RollBtiType.ADCI, RollBtiRecommendationBucket.NORMAL, 20, null, Tier.GOLD, null);
+        var badResponse = rollBtiFacadeService.getRecommendationsByTypeAndBucketWithCursor(
+                RollBtiType.ADCI, RollBtiRecommendationBucket.BAD, 20, null, Tier.GOLD, null);
+
+        assertThat(goodResponse.getRecommendations())
+                .extracting(recommendation -> recommendation.getCompatibilityScore())
+                .containsOnly(95);
+        assertThat(normalResponse.getRecommendations())
+                .extracting(recommendation -> recommendation.getCompatibilityScore())
+                .allMatch(score -> score >= 50 && score < 90);
+        assertThat(badResponse.getRecommendations())
+                .extracting(recommendation -> recommendation.getCompatibilityScore())
+                .containsOnly(20);
     }
 
     private Member createMember(int index, Tier tier) {

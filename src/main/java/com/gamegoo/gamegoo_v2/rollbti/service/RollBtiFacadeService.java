@@ -14,6 +14,7 @@ import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiCompatibilityOrder;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiGuestResult;
 import com.gamegoo.gamegoo_v2.rollbti.domain.MemberRollBtiProfile;
+import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiRecommendationBucket;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiEvent;
 import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiType;
 import com.gamegoo.gamegoo_v2.rollbti.dto.request.RollBtiEventRequest;
@@ -129,6 +130,16 @@ public class RollBtiFacadeService {
         return getRecommendationsWithCursor(type, size, cursorMemberId, compatibilityOrder, tier, member.getId());
     }
 
+    public RollBtiRecommendationCursorResponse getMyRecommendationsByBucketWithCursor(
+            Member member,
+            RollBtiRecommendationBucket bucket,
+            Integer size,
+            Long cursorMemberId,
+            Tier tier) {
+        RollBtiType type = getProfileOrThrow(member.getId()).getRollBtiType();
+        return getRecommendationsByBucketWithCursor(type, bucket, size, cursorMemberId, tier, member.getId());
+    }
+
     public RollBtiRecommendationResponse getRecommendationsByType(
             RollBtiType type,
             Integer size,
@@ -147,6 +158,16 @@ public class RollBtiFacadeService {
             Tier tier,
             Long excludeMemberId) {
         return getRecommendationsWithCursor(type, size, cursorMemberId, compatibilityOrder, tier, excludeMemberId);
+    }
+
+    public RollBtiRecommendationCursorResponse getRecommendationsByTypeAndBucketWithCursor(
+            RollBtiType type,
+            RollBtiRecommendationBucket bucket,
+            Integer size,
+            Long cursorMemberId,
+            Tier tier,
+            Long excludeMemberId) {
+        return getRecommendationsByBucketWithCursor(type, bucket, size, cursorMemberId, tier, excludeMemberId);
     }
 
     public RollBtiPublicRecommendationResponse getPublicRecommendations(
@@ -353,6 +374,59 @@ public class RollBtiFacadeService {
         );
     }
 
+    private RollBtiRecommendationCursorResponse getRecommendationsByBucketWithCursor(
+            RollBtiType requesterType,
+            RollBtiRecommendationBucket bucket,
+            Integer size,
+            Long cursorMemberId,
+            Tier tier,
+            Long excludeMemberId) {
+        int normalizedSize = normalizeSize(size);
+        List<RollBtiRecommendedMemberResponse> recommendationsByBucket =
+                getSortedRecommendations(requesterType, RollBtiCompatibilityOrder.HIGH, tier, excludeMemberId).stream()
+                        .filter(recommendation -> matchesBucket(recommendation.getCompatibilityScore(), bucket))
+                        .toList();
+
+        int startIndex = 0;
+        if (cursorMemberId != null) {
+            int cursorIndex = findCursorIndex(recommendationsByBucket, cursorMemberId);
+            if (cursorIndex < 0) {
+                return RollBtiRecommendationCursorResponse.of(
+                        requesterType,
+                        normalizedSize,
+                        List.of(),
+                        false,
+                        null
+                );
+            }
+            startIndex = cursorIndex + 1;
+        }
+
+        if (startIndex >= recommendationsByBucket.size()) {
+            return RollBtiRecommendationCursorResponse.of(
+                    requesterType,
+                    normalizedSize,
+                    List.of(),
+                    false,
+                    null
+            );
+        }
+
+        int endIndex = Math.min(startIndex + normalizedSize, recommendationsByBucket.size());
+        boolean hasNext = endIndex < recommendationsByBucket.size();
+        List<RollBtiRecommendedMemberResponse> recommendations =
+                recommendationsByBucket.subList(startIndex, endIndex);
+        Long nextCursorMemberId = hasNext ? recommendations.get(recommendations.size() - 1).getMemberId() : null;
+
+        return RollBtiRecommendationCursorResponse.of(
+                requesterType,
+                normalizedSize,
+                recommendations,
+                hasNext,
+                nextCursorMemberId
+        );
+    }
+
     private List<RollBtiRecommendedMemberResponse> getSortedRecommendations(
             RollBtiType requesterType,
             RollBtiCompatibilityOrder compatibilityOrder,
@@ -429,6 +503,14 @@ public class RollBtiFacadeService {
                 .thenComparing(RollBtiRecommendedMemberResponse::getUpdatedAt,
                         Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(RollBtiRecommendedMemberResponse::getMemberId, Comparator.reverseOrder());
+    }
+
+    private boolean matchesBucket(int compatibilityScore, RollBtiRecommendationBucket bucket) {
+        return switch (bucket) {
+            case GOOD -> compatibilityScore >= 90;
+            case NORMAL -> compatibilityScore >= 50 && compatibilityScore < 90;
+            case BAD -> compatibilityScore < 50;
+        };
     }
 
     private Comparator<RollBtiMemberCardResponse> getPublicRecommendationComparator() {
