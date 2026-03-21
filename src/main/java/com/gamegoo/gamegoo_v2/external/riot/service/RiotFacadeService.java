@@ -6,6 +6,7 @@ import com.gamegoo.gamegoo_v2.account.member.domain.Member;
 import com.gamegoo.gamegoo_v2.account.member.service.BanService;
 import com.gamegoo.gamegoo_v2.account.member.service.MemberService;
 import com.gamegoo.gamegoo_v2.account.member.service.AsyncChampionStatsService;
+import com.gamegoo.gamegoo_v2.external.riot.dto.response.RSOLoginResponse;
 import com.gamegoo.gamegoo_v2.external.riot.dto.response.RiotJoinResponse;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -34,7 +35,6 @@ public class RiotFacadeService {
     private final MemberService memberService;
     private final AuthService authService;
     private final JwtProvider jwtProvider;
-    private final OAuthRedirectBuilder oAuthRedirectBuilder;
     private final BanService banService;
     private final AsyncChampionStatsService asyncChampionStatsService;
 
@@ -93,11 +93,10 @@ public class RiotFacadeService {
      *
      * @param code  토큰 발급용 코드
      * @param state 프론트 리다이렉트용 state
-     * @return 리다리렉트 주소
+     * @return RSOLoginResponse (redirectUrl + refreshToken)
      */
     @Transactional
-    public String processOAuthCallback(String code, String state) {
-        // 리다이렉트 URL 결정
+    public RSOLoginResponse processOAuthCallback(String code, String state) {
         RSOState decodedRSOState = StateUtil.decodeRSOState(state);
         String targetUrl = decodedRSOState.getRedirect();
 
@@ -111,36 +110,40 @@ public class RiotFacadeService {
             // id_token 파싱 → Riot 사용자 정보 추출
             summonerInfo = riotOAuthService.getSummonerInfo(riotAuthTokenResponse.getAccessToken());
         } catch (Exception e) {
-            return String.format("%s?error=riot_api_error", targetUrl);
+            return RSOLoginResponse.builder()
+                    .redirectUrl(String.format("%s?error=riot_api_error", targetUrl))
+                    .build();
         }
 
-        // 만약 사용자 정보가 null 일 경우 롤과 연동되지 않은 사용자
+        // Riot 계정 정보 없음
         if (summonerInfo == null) {
-            return String.format("%s?error=signup_disabled", targetUrl);
+            return RSOLoginResponse.builder()
+                    .redirectUrl(String.format("%s?error=signup_disabled", targetUrl))
+                    .build();
         }
 
         // DB에서 사용자 존재 여부 확인
         String puuid = summonerInfo.getPuuid();
         List<Member> memberList = memberService.findMemberByPuuid(puuid);
 
-        // 사용자가 아예 없을 경우, 회원가입 요청
+        // 회원가입 필요
         if (memberList.isEmpty()) {
-            return oAuthRedirectBuilder.buildJoinRedirectUrl(targetUrl, state, puuid);
+            return RSOLoginResponse.join(targetUrl, state, puuid);
         }
 
-        // 사용자가 있을 경우
         Member member = memberList.get(0);
 
-        // 탈퇴한 사용자인지 확인하기
+        // 탈퇴 사용자
         if (member.getBlind()) {
-            return String.format("%s?error=member_isBlind&puuid=%s", targetUrl, puuid);
+            return RSOLoginResponse.builder()
+                    .redirectUrl(String.format("%s?error=member_isBlind&puuid=%s", targetUrl, puuid))
+                    .build();
         }
 
-        // 로그인 진행
         String accessToken = jwtProvider.createAccessToken(member.getId(), member.getRole());
         String refreshToken = jwtProvider.createRefreshToken(member.getId(), member.getRole());
 
-        // refresh token DB에 저장
+        // refresh token 저장
         authService.updateRefreshToken(member, refreshToken);
 
         // 만료된 제재 자동 해제
@@ -152,8 +155,7 @@ public class RiotFacadeService {
             banMessage = banService.getBanReasonMessage(member.getBanType());
         }
 
-        return oAuthRedirectBuilder.buildLoginRedirectUrl(member, state, targetUrl, accessToken, refreshToken,
-                banMessage);
+        return RSOLoginResponse.of(member, state, targetUrl, accessToken, refreshToken, banMessage);
     }
 
 }

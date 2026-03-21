@@ -6,7 +6,7 @@ import lombok.Getter;
 
 @Builder
 @Getter
-public class RefreshTokenResponse {
+public class TokensResponse {
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     Long id;
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
@@ -14,8 +14,8 @@ public class RefreshTokenResponse {
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     String refreshToken;
 
-    public static RefreshTokenResponse of(Long id, String accessToken, String refreshToken) {
-        return RefreshTokenResponse.builder()
+    public static TokensResponse of(Long id, String accessToken, String refreshToken) {
+        return TokensResponse.builder()
                 .id(id)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
