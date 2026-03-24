@@ -1,5 +1,7 @@
 package com.gamegoo.gamegoo_v2.rollbti.controller;
 
+import com.gamegoo.gamegoo_v2.account.auth.annotation.AuthMember;
+import com.gamegoo.gamegoo_v2.account.member.domain.Member;
 import com.gamegoo.gamegoo_v2.account.member.domain.Tier;
 import com.gamegoo.gamegoo_v2.core.common.ApiResponse;
 import com.gamegoo.gamegoo_v2.core.config.swagger.ApiErrorCodes;
@@ -173,10 +175,11 @@ public class RollBtiInternalController {
             ErrorCode._BAD_REQUEST
     })
     public ApiResponse<RollBtiPublicRecommendationResponse> getPublicRecommendations(
+            @AuthMember(required = false) Member member,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Tier tier) {
-        return ApiResponse.ok(rollBtiFacadeService.getPublicRecommendations(size, page, tier));
+        return ApiResponse.ok(rollBtiFacadeService.getPublicRecommendations(member, size, page, tier));
     }
 
     @Operation(summary = "비회원 롤BTI 회원 카드 무한스크롤 조회 API",
@@ -190,10 +193,11 @@ public class RollBtiInternalController {
             ErrorCode._BAD_REQUEST
     })
     public ApiResponse<RollBtiPublicRecommendationCursorResponse> getPublicRecommendationsWithCursor(
+            @AuthMember(required = false) Member member,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) @Min(1) Long cursorMemberId,
             @RequestParam(required = false) Tier tier) {
-        return ApiResponse.ok(rollBtiFacadeService.getPublicRecommendationsWithCursor(size, cursorMemberId, tier));
+        return ApiResponse.ok(rollBtiFacadeService.getPublicRecommendationsWithCursor(member, size, cursorMemberId, tier));
     }
 
     @Operation(summary = "롤BTI 누적 참여 인원 조회 API",

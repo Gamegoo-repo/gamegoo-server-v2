@@ -46,6 +46,16 @@ public class RollBtiRecommendedMemberResponse {
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private Integer compatibilityScore;
 
+    private Boolean blocked;
+
+    private Boolean friendRequestReceived;
+
+    private Boolean friendRequestSent;
+
+    private Boolean friend;
+
+    private Boolean nonFriend;
+
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime updatedAt;
 
@@ -63,6 +73,11 @@ public class RollBtiRecommendedMemberResponse {
             Mike mike,
             RollBtiType rollBtiType,
             Integer compatibilityScore,
+            Boolean blocked,
+            Boolean friendRequestReceived,
+            Boolean friendRequestSent,
+            Boolean friend,
+            Boolean nonFriend,
             LocalDateTime updatedAt,
             List<ChampionStatsResponse> championStatsResponseList) {
         return RollBtiRecommendedMemberResponse.builder()
@@ -76,6 +91,11 @@ public class RollBtiRecommendedMemberResponse {
                 .mike(mike)
                 .rollBtiType(rollBtiType)
                 .compatibilityScore(compatibilityScore)
+                .blocked(blocked)
+                .friendRequestReceived(friendRequestReceived)
+                .friendRequestSent(friendRequestSent)
+                .friend(friend)
+                .nonFriend(nonFriend)
                 .updatedAt(updatedAt)
                 .championStatsResponseList(championStatsResponseList)
                 .build();

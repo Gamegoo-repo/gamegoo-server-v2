@@ -35,6 +35,8 @@ import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiTypeSummaryResponse;
 import com.gamegoo.gamegoo_v2.rollbti.repository.RollBtiGuestResultRepository;
 import com.gamegoo.gamegoo_v2.rollbti.repository.MemberRollBtiProfileRepository;
 import com.gamegoo.gamegoo_v2.rollbti.repository.RollBtiEventRepository;
+import com.gamegoo.gamegoo_v2.social.block.service.BlockService;
+import com.gamegoo.gamegoo_v2.social.friend.service.FriendService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -77,6 +79,8 @@ public class RollBtiFacadeService {
     private final RollBtiGuestResultRepository rollBtiGuestResultRepository;
     private final RollBtiGuestResultSaver rollBtiGuestResultSaver;
     private final RollBtiCatalogService rollBtiCatalogService;
+    private final FriendService friendService;
+    private final BlockService blockService;
     private final ObjectMapper objectMapper;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -117,7 +121,7 @@ public class RollBtiFacadeService {
             RollBtiCompatibilityOrder compatibilityOrder,
             Tier tier) {
         RollBtiType type = getProfileOrThrow(member.getId()).getRollBtiType();
-        return getRecommendations(type, size, page, compatibilityOrder, tier, member.getId());
+        return getRecommendations(type, size, page, compatibilityOrder, tier, member);
     }
 
     public RollBtiRecommendationCursorResponse getMyRecommendationsWithCursor(
@@ -127,7 +131,7 @@ public class RollBtiFacadeService {
             RollBtiCompatibilityOrder compatibilityOrder,
             Tier tier) {
         RollBtiType type = getProfileOrThrow(member.getId()).getRollBtiType();
-        return getRecommendationsWithCursor(type, size, cursorMemberId, compatibilityOrder, tier, member.getId());
+        return getRecommendationsWithCursor(type, size, cursorMemberId, compatibilityOrder, tier, member);
     }
 
     public RollBtiRecommendationCursorResponse getMyRecommendationsByBucketWithCursor(
@@ -137,7 +141,7 @@ public class RollBtiFacadeService {
             Long cursorMemberId,
             Tier tier) {
         RollBtiType type = getProfileOrThrow(member.getId()).getRollBtiType();
-        return getRecommendationsByBucketWithCursor(type, bucket, size, cursorMemberId, tier, member.getId());
+        return getRecommendationsByBucketWithCursor(type, bucket, size, cursorMemberId, tier, member);
     }
 
     public RollBtiRecommendationResponse getRecommendationsByType(
@@ -147,7 +151,7 @@ public class RollBtiFacadeService {
             RollBtiCompatibilityOrder compatibilityOrder,
             Tier tier,
             Long excludeMemberId) {
-        return getRecommendations(type, size, page, compatibilityOrder, tier, excludeMemberId);
+        return getRecommendations(type, size, page, compatibilityOrder, tier, resolveRequesterMember(excludeMemberId));
     }
 
     public RollBtiRecommendationCursorResponse getRecommendationsByTypeWithCursor(
@@ -157,7 +161,8 @@ public class RollBtiFacadeService {
             RollBtiCompatibilityOrder compatibilityOrder,
             Tier tier,
             Long excludeMemberId) {
-        return getRecommendationsWithCursor(type, size, cursorMemberId, compatibilityOrder, tier, excludeMemberId);
+        return getRecommendationsWithCursor(type, size, cursorMemberId, compatibilityOrder, tier,
+                resolveRequesterMember(excludeMemberId));
     }
 
     public RollBtiRecommendationCursorResponse getRecommendationsByTypeAndBucketWithCursor(
@@ -167,16 +172,18 @@ public class RollBtiFacadeService {
             Long cursorMemberId,
             Tier tier,
             Long excludeMemberId) {
-        return getRecommendationsByBucketWithCursor(type, bucket, size, cursorMemberId, tier, excludeMemberId);
+        return getRecommendationsByBucketWithCursor(type, bucket, size, cursorMemberId, tier,
+                resolveRequesterMember(excludeMemberId));
     }
 
     public RollBtiPublicRecommendationResponse getPublicRecommendations(
+            Member requesterMember,
             Integer size,
             Integer page,
             Tier tier) {
         int normalizedSize = normalizeSize(size);
         int normalizedPage = normalizePage(page);
-        List<RollBtiMemberCardResponse> sortedRecommendations = getSortedPublicRecommendations(tier);
+        List<RollBtiMemberCardResponse> sortedRecommendations = getSortedPublicRecommendations(tier, requesterMember);
 
         int startIndex = (normalizedPage - 1) * normalizedSize;
         if (startIndex >= sortedRecommendations.size()) {
@@ -201,11 +208,12 @@ public class RollBtiFacadeService {
     }
 
     public RollBtiPublicRecommendationCursorResponse getPublicRecommendationsWithCursor(
+            Member requesterMember,
             Integer size,
             Long cursorMemberId,
             Tier tier) {
         int normalizedSize = normalizeSize(size);
-        List<RollBtiMemberCardResponse> sortedRecommendations = getSortedPublicRecommendations(tier);
+        List<RollBtiMemberCardResponse> sortedRecommendations = getSortedPublicRecommendations(tier, requesterMember);
 
         int startIndex = 0;
         if (cursorMemberId != null) {
@@ -293,12 +301,12 @@ public class RollBtiFacadeService {
             Integer page,
             RollBtiCompatibilityOrder compatibilityOrder,
             Tier tier,
-            Long excludeMemberId) {
+            Member requesterMember) {
         int normalizedSize = normalizeSize(size);
         int normalizedPage = normalizePage(page);
 
         List<RollBtiRecommendedMemberResponse> sortedRecommendations =
-                getSortedRecommendations(requesterType, compatibilityOrder, tier, excludeMemberId);
+                getSortedRecommendations(requesterType, compatibilityOrder, tier, requesterMember);
 
         int startIndex = (normalizedPage - 1) * normalizedSize;
         if (startIndex >= sortedRecommendations.size()) {
@@ -330,10 +338,10 @@ public class RollBtiFacadeService {
             Long cursorMemberId,
             RollBtiCompatibilityOrder compatibilityOrder,
             Tier tier,
-            Long excludeMemberId) {
+            Member requesterMember) {
         int normalizedSize = normalizeSize(size);
         List<RollBtiRecommendedMemberResponse> sortedRecommendations =
-                getSortedRecommendations(requesterType, compatibilityOrder, tier, excludeMemberId);
+                getSortedRecommendations(requesterType, compatibilityOrder, tier, requesterMember);
 
         int startIndex = 0;
         if (cursorMemberId != null) {
@@ -380,10 +388,10 @@ public class RollBtiFacadeService {
             Integer size,
             Long cursorMemberId,
             Tier tier,
-            Long excludeMemberId) {
+            Member requesterMember) {
         int normalizedSize = normalizeSize(size);
         List<RollBtiRecommendedMemberResponse> recommendationsByBucket =
-                getSortedRecommendations(requesterType, RollBtiCompatibilityOrder.HIGH, tier, excludeMemberId).stream()
+                getSortedRecommendations(requesterType, RollBtiCompatibilityOrder.HIGH, tier, requesterMember).stream()
                         .filter(recommendation -> matchesBucket(recommendation.getCompatibilityScore(), bucket))
                         .toList();
 
@@ -431,11 +439,13 @@ public class RollBtiFacadeService {
             RollBtiType requesterType,
             RollBtiCompatibilityOrder compatibilityOrder,
             Tier tier,
-            Long excludeMemberId) {
-        List<MemberRollBtiProfile> candidateProfiles = memberRollBtiProfileRepository.findRecommendationCandidates(
-                tier, excludeMemberId);
+            Member requesterMember) {
+        Long excludeMemberId = requesterMember != null ? requesterMember.getId() : null;
+        List<MemberRollBtiProfile> candidateProfiles =
+                memberRollBtiProfileRepository.findRecommendationCandidates(tier, excludeMemberId);
         Set<RollBtiType> goodMatches = rollBtiCatalogService.getGoodMatches(requesterType);
         Set<RollBtiType> badMatches = rollBtiCatalogService.getBadMatches(requesterType);
+        RecommendationRelationContext relationContext = buildRelationContext(requesterMember, candidateProfiles);
 
         return candidateProfiles.stream()
                 .map(profile -> {
@@ -447,6 +457,7 @@ public class RollBtiFacadeService {
                             goodMatches,
                             badMatches
                     );
+                    RecommendationRelation relation = relationContext.get(targetMember.getId());
                     return RollBtiRecommendedMemberResponse.of(
                             targetMember.getId(),
                             targetMember.getGameName(),
@@ -458,11 +469,27 @@ public class RollBtiFacadeService {
                             targetMember.getMike(),
                             targetType,
                             compatibilityScore,
+                            relation.blocked(),
+                            relation.friendRequestReceived(),
+                            relation.friendRequestSent(),
+                            relation.friend(),
+                            relation.nonFriend(),
                             getRecommendationUpdatedAt(profile),
                             getRecommendedChampionStats(targetMember));
                 })
                 .sorted(getRecommendationComparator(compatibilityOrder))
                 .collect(Collectors.toList());
+    }
+
+    private List<RollBtiMemberCardResponse> getSortedPublicRecommendations(Tier tier, Member requesterMember) {
+        List<MemberRollBtiProfile> candidateProfiles =
+                memberRollBtiProfileRepository.findRecommendationCandidates(tier, null);
+        RecommendationRelationContext relationContext = buildRelationContext(requesterMember, candidateProfiles);
+
+        return candidateProfiles.stream()
+                .map(profile -> toMemberCardResponse(profile, relationContext))
+                .sorted(getPublicRecommendationComparator())
+                .toList();
     }
 
     private List<RollBtiMemberCardResponse> getSortedPublicRecommendations(Tier tier) {
@@ -541,7 +568,14 @@ public class RollBtiFacadeService {
     }
 
     private RollBtiMemberCardResponse toMemberCardResponse(MemberRollBtiProfile profile) {
+        return toMemberCardResponse(profile, RecommendationRelationContext.empty());
+    }
+
+    private RollBtiMemberCardResponse toMemberCardResponse(
+            MemberRollBtiProfile profile,
+            RecommendationRelationContext relationContext) {
         Member targetMember = profile.getMember();
+        RecommendationRelation relation = relationContext.get(targetMember.getId());
         return RollBtiMemberCardResponse.of(
                 targetMember.getId(),
                 targetMember.getGameName(),
@@ -552,9 +586,73 @@ public class RollBtiFacadeService {
                 targetMember.getSubP(),
                 targetMember.getMike(),
                 profile.getRollBtiType(),
+                relation.blocked(),
+                relation.friendRequestReceived(),
+                relation.friendRequestSent(),
+                relation.friend(),
+                relation.nonFriend(),
                 getRecommendationUpdatedAt(profile),
                 getRecommendedChampionStats(targetMember)
         );
+    }
+
+    private Member resolveRequesterMember(Long requesterMemberId) {
+        if (requesterMemberId == null) {
+            return null;
+        }
+        return memberRepository.findById(requesterMemberId).orElse(null);
+    }
+
+    private RecommendationRelationContext buildRelationContext(
+            Member requesterMember,
+            List<MemberRollBtiProfile> candidateProfiles) {
+        if (requesterMember == null || candidateProfiles.isEmpty()) {
+            return RecommendationRelationContext.empty();
+        }
+
+        List<Long> targetMemberIds = candidateProfiles.stream()
+                .map(profile -> profile.getMember().getId())
+                .distinct()
+                .toList();
+
+        return new RecommendationRelationContext(
+                blockService.hasBlockedTargetMembersBatch(requesterMember, targetMemberIds),
+                friendService.isFriendBatch(requesterMember, targetMemberIds),
+                friendService.getFriendRequestMemberIdBatch(requesterMember, targetMemberIds),
+                requesterMember.getId()
+        );
+    }
+
+    private record RecommendationRelationContext(
+            java.util.Map<Long, Boolean> blockedMap,
+            java.util.Map<Long, Boolean> friendMap,
+            java.util.Map<Long, Long> friendRequestMemberIdMap,
+            Long requesterMemberId) {
+
+        private static RecommendationRelationContext empty() {
+            return new RecommendationRelationContext(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), null);
+        }
+
+        private RecommendationRelation get(Long targetMemberId) {
+            if (requesterMemberId == null) {
+                return new RecommendationRelation(null, null, null, null, null);
+            }
+            boolean blocked = blockedMap.getOrDefault(targetMemberId, false);
+            boolean friend = friendMap.getOrDefault(targetMemberId, false);
+            Long requestMemberId = friendRequestMemberIdMap.get(targetMemberId);
+            boolean friendRequestSent = requesterMemberId != null && requesterMemberId.equals(requestMemberId);
+            boolean friendRequestReceived = requestMemberId != null && requestMemberId.equals(targetMemberId);
+            boolean nonFriend = !blocked && !friend && !friendRequestSent && !friendRequestReceived;
+            return new RecommendationRelation(blocked, friendRequestReceived, friendRequestSent, friend, nonFriend);
+        }
+    }
+
+    private record RecommendationRelation(
+            Boolean blocked,
+            Boolean friendRequestReceived,
+            Boolean friendRequestSent,
+            Boolean friend,
+            Boolean nonFriend) {
     }
 
     private int calculateCompatibilityScore(RollBtiType requesterType, RollBtiType targetType,

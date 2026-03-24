@@ -123,7 +123,7 @@ class RollBtiFacadeServiceTest {
         memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(alpha, RollBtiType.ADCI));
         memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(bravo, RollBtiType.FSCB));
 
-        RollBtiPublicRecommendationResponse response = rollBtiFacadeService.getPublicRecommendations(20, 1, Tier.GOLD);
+        RollBtiPublicRecommendationResponse response = rollBtiFacadeService.getPublicRecommendations(null, 20, 1, Tier.GOLD);
 
         assertThat(response.getRecommendations())
                 .extracting(recommendation -> recommendation.getGameName())
@@ -142,9 +142,9 @@ class RollBtiFacadeServiceTest {
         }
 
         RollBtiPublicRecommendationCursorResponse firstPage =
-                rollBtiFacadeService.getPublicRecommendationsWithCursor(20, null, Tier.GOLD);
+                rollBtiFacadeService.getPublicRecommendationsWithCursor(null, 20, null, Tier.GOLD);
         RollBtiPublicRecommendationCursorResponse secondPage =
-                rollBtiFacadeService.getPublicRecommendationsWithCursor(20, firstPage.getNextCursorMemberId(), Tier.GOLD);
+                rollBtiFacadeService.getPublicRecommendationsWithCursor(null, 20, firstPage.getNextCursorMemberId(), Tier.GOLD);
 
         assertThat(firstPage.getRecommendations()).hasSize(20);
         assertThat(firstPage.isHasNext()).isTrue();

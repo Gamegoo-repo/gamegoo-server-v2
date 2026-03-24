@@ -43,6 +43,16 @@ public class RollBtiMemberCardResponse {
     @Schema(ref = "#/components/schemas/RollBtiType", requiredMode = Schema.RequiredMode.REQUIRED)
     private RollBtiType rollBtiType;
 
+    private Boolean blocked;
+
+    private Boolean friendRequestReceived;
+
+    private Boolean friendRequestSent;
+
+    private Boolean friend;
+
+    private Boolean nonFriend;
+
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime updatedAt;
 
@@ -59,6 +69,11 @@ public class RollBtiMemberCardResponse {
             Position subP,
             Mike mike,
             RollBtiType rollBtiType,
+            Boolean blocked,
+            Boolean friendRequestReceived,
+            Boolean friendRequestSent,
+            Boolean friend,
+            Boolean nonFriend,
             LocalDateTime updatedAt,
             List<ChampionStatsResponse> championStatsResponseList) {
         return RollBtiMemberCardResponse.builder()
@@ -71,6 +86,11 @@ public class RollBtiMemberCardResponse {
                 .subP(subP)
                 .mike(mike)
                 .rollBtiType(rollBtiType)
+                .blocked(blocked)
+                .friendRequestReceived(friendRequestReceived)
+                .friendRequestSent(friendRequestSent)
+                .friend(friend)
+                .nonFriend(nonFriend)
                 .updatedAt(updatedAt)
                 .championStatsResponseList(championStatsResponseList)
                 .build();
