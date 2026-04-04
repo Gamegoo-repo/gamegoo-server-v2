@@ -55,6 +55,9 @@ logging:
   discord:
     scheduler_webhook: ${DISCORD_SCHEDULER_WEBHOOK}
 
+roll-bti:
+  participant-count-adjustment: 0
+
 # Actuator 설정
 management:
   endpoints:
@@ -189,6 +192,9 @@ cors:
     - https://www.gamegoo.co.kr
     - https://admin.gamegoo.co.kr
     - https://test.gamegoo.co.kr
+
+roll-bti:
+  participant-count-adjustment: 7508
 
 ---
 # QA 환경

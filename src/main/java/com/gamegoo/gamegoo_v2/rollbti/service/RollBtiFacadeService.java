@@ -39,6 +39,7 @@ import com.gamegoo.gamegoo_v2.social.block.service.BlockService;
 import com.gamegoo.gamegoo_v2.social.friend.service.FriendService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,6 +83,10 @@ public class RollBtiFacadeService {
     private final FriendService friendService;
     private final BlockService blockService;
     private final ObjectMapper objectMapper;
+
+    @Value("${roll-bti.participant-count-adjustment:0}")
+    private long participantCountAdjustment;
+
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -252,7 +257,8 @@ public class RollBtiFacadeService {
     }
 
     public RollBtiParticipationCountResponse getParticipationCount() {
-        long totalParticipants = rollBtiEventRepository.countDistinctParticipantsByCompleteTest();
+        long totalParticipants = rollBtiEventRepository.countDistinctParticipantsByCompleteTest()
+                + participantCountAdjustment;
         return RollBtiParticipationCountResponse.of(totalParticipants);
     }
 
