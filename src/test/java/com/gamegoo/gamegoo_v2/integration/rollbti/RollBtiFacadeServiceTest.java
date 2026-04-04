@@ -13,12 +13,14 @@ import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiPublicRecommendationRe
 import com.gamegoo.gamegoo_v2.rollbti.dto.response.RollBtiRecommendationResponse;
 import com.gamegoo.gamegoo_v2.rollbti.repository.MemberRollBtiProfileRepository;
 import com.gamegoo.gamegoo_v2.rollbti.service.RollBtiFacadeService;
-import org.junit.jupiter.api.AfterEach;
+import com.gamegoo.gamegoo_v2.social.block.service.BlockService;
+import com.gamegoo.gamegoo_v2.social.friend.service.FriendService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Transactional
 class RollBtiFacadeServiceTest {
 
     @Autowired
@@ -38,11 +41,11 @@ class RollBtiFacadeServiceTest {
     @Autowired
     private MemberRollBtiProfileRepository memberRollBtiProfileRepository;
 
-    @AfterEach
-    void tearDown() {
-        memberRollBtiProfileRepository.deleteAllInBatch();
-        memberRepository.deleteAllInBatch();
-    }
+    @Autowired
+    private FriendService friendService;
+
+    @Autowired
+    private BlockService blockService;
 
     @Test
     @DisplayName("게시글이 없어도 롤BTI 프로필이 있으면 회원 기반 추천 대상에 포함된다")
@@ -184,6 +187,53 @@ class RollBtiFacadeServiceTest {
         assertThat(badResponse.getRecommendations())
                 .extracting(recommendation -> recommendation.getCompatibilityScore())
                 .containsOnly(20);
+    }
+
+    @Test
+    @DisplayName("로그인 사용자가 차단한 유저는 공개 피드에서 제외된다")
+    void getPublicRecommendations_shouldExcludeBlockedMembers() {
+        Member requester = memberRepository.save(createMember("requester", "KR0", Tier.GOLD));
+        Member blockedMember = memberRepository.save(createMember("blocked", "KR1", Tier.GOLD));
+        Member visibleMember = memberRepository.save(createMember("visible", "KR2", Tier.GOLD));
+
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(blockedMember, RollBtiType.ADCI));
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(visibleMember, RollBtiType.FSCB));
+
+        blockService.blockMember(requester, blockedMember);
+
+        RollBtiPublicRecommendationResponse response =
+                rollBtiFacadeService.getPublicRecommendations(requester, 20, 1, Tier.GOLD);
+
+        assertThat(response.getRecommendations())
+                .extracting(recommendation -> recommendation.getMemberId())
+                .containsExactly(visibleMember.getId());
+    }
+
+    @Test
+    @DisplayName("나에게 친구 요청을 보낸 유저는 회원 추천에서 가장 먼저 노출된다")
+    void getMyRecommendations_shouldPrioritizeReceivedFriendRequest() {
+        Member requester = memberRepository.save(createMember("requester", "KR0", Tier.GOLD));
+        Member requesterTarget = memberRepository.save(createMember("requesterTarget", "KR9", Tier.GOLD));
+        Member requestSender = memberRepository.save(createMember("sender", "KR1", Tier.GOLD));
+        Member other = memberRepository.save(createMember("other", "KR2", Tier.GOLD));
+
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(requester, RollBtiType.ADCI));
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(requesterTarget, RollBtiType.ADTB));
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(requestSender, RollBtiType.ADTB));
+        memberRollBtiProfileRepository.save(MemberRollBtiProfile.create(other, RollBtiType.ADTB));
+
+        friendService.sendFriendRequest(requestSender, requester);
+
+        RollBtiRecommendationResponse response = rollBtiFacadeService.getMyRecommendations(
+                requester,
+                20,
+                1,
+                RollBtiCompatibilityOrder.HIGH,
+                Tier.GOLD
+        );
+
+        assertThat(response.getRecommendations().get(0).getMemberId()).isEqualTo(requestSender.getId());
+        assertThat(response.getRecommendations().get(0).getFriendRequestReceived()).isTrue();
     }
 
     private Member createMember(int index, Tier tier) {

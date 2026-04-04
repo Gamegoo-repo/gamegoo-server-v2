@@ -448,6 +448,7 @@ public class RollBtiFacadeService {
         RecommendationRelationContext relationContext = buildRelationContext(requesterMember, candidateProfiles);
 
         return candidateProfiles.stream()
+                .filter(profile -> !relationContext.isBlocked(profile.getMember().getId()))
                 .map(profile -> {
                     Member targetMember = profile.getMember();
                     RollBtiType targetType = profile.getRollBtiType();
@@ -487,6 +488,7 @@ public class RollBtiFacadeService {
         RecommendationRelationContext relationContext = buildRelationContext(requesterMember, candidateProfiles);
 
         return candidateProfiles.stream()
+                .filter(profile -> !relationContext.isBlocked(profile.getMember().getId()))
                 .map(profile -> toMemberCardResponse(profile, relationContext))
                 .sorted(getPublicRecommendationComparator())
                 .toList();
@@ -526,7 +528,10 @@ public class RollBtiFacadeService {
             scoreComparator = scoreComparator.reversed();
         }
 
-        return scoreComparator
+        return Comparator.comparing(
+                        RollBtiRecommendedMemberResponse::getFriendRequestReceived,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(scoreComparator)
                 .thenComparing(RollBtiRecommendedMemberResponse::getUpdatedAt,
                         Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(RollBtiRecommendedMemberResponse::getMemberId, Comparator.reverseOrder());
@@ -542,6 +547,9 @@ public class RollBtiFacadeService {
 
     private Comparator<RollBtiMemberCardResponse> getPublicRecommendationComparator() {
         return Comparator.comparing(
+                        RollBtiMemberCardResponse::getFriendRequestReceived,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(
                         RollBtiMemberCardResponse::getGameName,
                         Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
                 .thenComparing(
@@ -644,6 +652,13 @@ public class RollBtiFacadeService {
             boolean friendRequestReceived = requestMemberId != null && requestMemberId.equals(targetMemberId);
             boolean nonFriend = !blocked && !friend && !friendRequestSent && !friendRequestReceived;
             return new RecommendationRelation(blocked, friendRequestReceived, friendRequestSent, friend, nonFriend);
+        }
+
+        private boolean isBlocked(Long targetMemberId) {
+            if (requesterMemberId == null) {
+                return false;
+            }
+            return blockedMap.getOrDefault(targetMemberId, false);
         }
     }
 
