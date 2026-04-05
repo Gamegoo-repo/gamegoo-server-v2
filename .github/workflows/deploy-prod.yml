@@ -1,129 +1,93 @@
-name: Gamegoo v2 API PROD CI/CD
+name: Gamegoo Prod Deploy
 
 on:
-  pull_request:
-    types: [ closed ]
-    branches:
-      - main
   push:
     branches:
-      - main  # main 브랜치에 직접 푸시될 때도 실행
+      - main
   workflow_dispatch:
 
 jobs:
-  build-and-deploy: # Job 이름
-    if: |
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
-    runs-on: ubuntu-latest # 실행 환경 - 가장 최신 버전 Ubuntu 환경
-
-    env: # 전체 job에서 사용할 환경 변수 설정
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      RDS_PRIVATE_IP: ${{ secrets.RDS_PRIVATE_IP }}
-      RDS_PORT: ${{ secrets.RDS_PORT }}
-      PROD_DB_SCHEMA_NAME: ${{ secrets.PROD_DB_SCHEMA_NAME }}
-      DB_USERNAME: ${{ secrets.DB_USERNAME }}
-      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-      GMAIL_PWD: ${{ secrets.GMAIL_PWD }}
-      RIOT_API: ${{ secrets.RIOT_API }}
-      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-      SOCKET_SERVER_URL: ${{ secrets.SOCKET_SERVER_URL }}
-      FRONT_URL: ${{ secrets.FRONT_URL }}
-      CLIENT_ID: ${{ secrets.CLIENT_ID }}
-      CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
-      RSO_REDIRECT_URI: ${{ secrets.PROD_RSO_REDIRECT_URI }}
-      ADMIN_COMMON_PASSWORD: ${{ secrets.ADMIN_COMMON_PASSWORD }}
+  deploy:
+    runs-on: [self-hosted, macOS, ARM64, macmini]
 
     steps:
-      # 1. GitHub Repository 파일 불러오기
-      - name: Github Repository 파일 불러오기
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. 권한 설정
-      - name: gradlew 권한 설정
-        run: chmod +x ./gradlew
-        shell: bash
-
-      # 3. JDK 17 설치
-      - name: JDK 17 설치
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
+          distribution: temurin
           java-version: '17'
-          distribution: 'temurin'
+          cache: gradle
 
-      # 4. Docker 확장 기능 추가
-      - name: Docker 확장 기능 추가
-        uses: docker/setup-buildx-action@v3
+      - name: Create env file
+        run: |
+          mkdir -p ~/apps/gamegoo/env
+          cat > ~/apps/gamegoo/env/.env.prod <<EOF
+          SPRING_PROFILES_ACTIVE=prod
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          RDS_PRIVATE_IP=${{ secrets.RDS_PRIVATE_IP }}
+          RDS_PORT=${{ secrets.RDS_PORT }}
+          PROD_DB_SCHEMA_NAME=${{ secrets.PROD_DB_SCHEMA_NAME }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          GMAIL_PWD=${{ secrets.GMAIL_PWD }}
+          RIOT_API=${{ secrets.RIOT_API }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+          SOCKET_SERVER_URL=${{ secrets.SOCKET_SERVER_URL }}
+          FRONT_URL=${{ secrets.FRONT_URL }}
+          CLIENT_ID=${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET=${{ secrets.CLIENT_SECRET }}
+          RSO_REDIRECT_URI=${{ secrets.PROD_RSO_REDIRECT_URI }}
+          DISCORD_MONITORING_WEBHOOK_URL_PROD=${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_PROD }}
+          DISCORD_SCHEDULER_WEBHOOK=${{ secrets.DISCORD_SCHEDULER_WEBHOOK }}
+          ADMIN_COMMON_PASSWORD=${{ secrets.ADMIN_COMMON_PASSWORD }}
+          EOF
 
-      # 5. Docker Hub 로그인
-      - name: Docker Hub 로그인
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Prepare Docker config for CI
+        run: |
+          mkdir -p "$RUNNER_TEMP/docker-config"
+          cat > "$RUNNER_TEMP/docker-config/config.json" <<EOF
+          {
+            "auths": {}
+          }
+          EOF
+          
+      - name: Stop old container
+        run: |
+          docker rm -f gamegoo-api-v2-prod || true
 
-      # 6. Docker 이미지 생성 및 Push
-      - name: Docker 이미지 생성 및 push
-        uses: docker/build-push-action@v6
-        with:
-          context: . # Dockerfile-prod 위치
-          file: ./Dockerfile-prod # Dockerfile-prod 경로
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }} # 이미지 태그
-          platforms: linux/amd64
+      - name: Build jar
+        run: |
+          chmod +x ./gradlew
+          ./gradlew clean bootJar
 
-      ## CD (Continuous Deployment) 파트
-      # 7. EC2에 SSH로 접속하여 Docker 컨테이너 실행
-      - name: EC2에 배포
-        uses: appleboy/ssh-action@v1.1.0
-        with:
-          host: ${{ secrets.EC2_HOST }} # EC2 퍼블릭 IP
-          username: ubuntu # EC2 사용자 (기본은 ubuntu)
-          key: ${{ secrets.EC2_SSH_KEY }} # EC2 SSH Private Key
-          script_stop: true # SSH 명령어 실행 중 에러가 발생하면 워크플로 중단
-          script: |
-            sudo fuser -k -n tcp 8080 || true
+      - name: Build image
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
+        run: |
+          docker build -t gamegoo-api-v2:prod -f Dockerfile-prod .
 
-            docker rm -f gamegoo-api-v2-prod
-
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }}
-
-            docker run -d \
+      - name: Run container
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/docker-config
+        run: |
+          docker run -d \
             -p 8080:8080 \
             --name gamegoo-api-v2-prod \
-            -v ${{ secrets.EC2_LOG_PATH }}:/app/logs \
-            -e SPRING_PROFILES_ACTIVE=prod \
-            -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
-            -e RDS_PRIVATE_IP=${{ secrets.RDS_PRIVATE_IP }} \
-            -e RDS_PORT=${{ secrets.RDS_PORT }} \
-            -e PROD_DB_SCHEMA_NAME=${{ secrets.PROD_DB_SCHEMA_NAME }} \
-            -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
-            -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
-            -e GMAIL_PWD=${{ secrets.GMAIL_PWD }} \
-            -e RIOT_API=${{ secrets.RIOT_API }} \
-            -e SOCKET_SERVER_URL=${{ secrets.SOCKET_SERVER_URL }} \
-            -e FRONT_URL=${{ secrets.FRONT_URL }} \
-            -e CLIENT_ID=${{ secrets.CLIENT_ID }} \
-            -e CLIENT_SECRET=${{ secrets.CLIENT_SECRET }} \
-            -e RSO_REDIRECT_URI=${{ secrets.PROD_RSO_REDIRECT_URI }} \
-            -e DISCORD_MONITORING_WEBHOOK_URL_PROD=${{ secrets.DISCORD_MONITORING_WEBHOOK_URL_PROD }} \
-            -e DISCORD_SCHEDULER_WEBHOOK=${{ secrets.DISCORD_SCHEDULER_WEBHOOK }} \
-            -e ADMIN_COMMON_PASSWORD=${{ secrets.ADMIN_COMMON_PASSWORD }} \
-            ${{ secrets.DOCKERHUB_USERNAME }}/gamegoo-api-v2-prod:${{ github.sha }}
+            --restart always \
+            -v ~/apps/gamegoo/logs:/app/logs \
+            --env-file ~/apps/gamegoo/env/.env.prod \
+            gamegoo-api-v2:prod
 
-      # 8. 기존 Docker 이미지 삭제
-      - name: 기존 Docker 이미지 삭제
-        run: docker image prune -a
-
-      # 실패 시 디스코드에 알림 보내기
-      - name: 배포 실패 시 디스코드 알림 전송
-        if: failure() # 이전 스텝이 실패한 경우에만 실행
+      - name: Verify container is running
         run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
-          PR_URL="${{ github.event.pull_request.html_url }}"
-          curl -X POST -H "Content-Type: application/json" \
-          -d "{\"content\": \"🚨 **Gamegoo v2 API 운영 서버 배포 실패** 🚨\nPR 번호: ${PR_NUMBER}\nPR 제목: ${PR_TITLE}\nPR 작성자: ${PR_AUTHOR}\n[PR 보기](${PR_URL})\"}" \
-          $DISCORD_WEBHOOK_URL
+          sleep 10
+          docker ps
+          docker logs --tail=200 gamegoo-api-v2-prod || true
+          docker inspect gamegoo-api-v2-prod --format='{{.State.Status}} {{.State.ExitCode}} {{.State.Error}}'
+
+      - name: Cleanup
+        run: |
+          docker image prune -f
