@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, macOS, ARM64, macmini]
+    runs-on: self-hosted
 
     steps:
       - name: Checkout
@@ -53,7 +53,7 @@ jobs:
             "auths": {}
           }
           EOF
-          
+
       - name: Stop old container
         run: |
           docker rm -f gamegoo-api-v2-prod || true
