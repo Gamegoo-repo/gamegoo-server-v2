@@ -3,10 +3,12 @@ package com.gamegoo.gamegoo_v2.account.member.service;
 import com.gamegoo.gamegoo_v2.account.auth.domain.Role;
 import com.gamegoo.gamegoo_v2.account.member.domain.LoginType;
 import com.gamegoo.gamegoo_v2.account.member.domain.Member;
+import com.gamegoo.gamegoo_v2.account.member.domain.MemberRecentStats;
 import com.gamegoo.gamegoo_v2.account.member.domain.Mike;
 import com.gamegoo.gamegoo_v2.account.member.domain.Position;
 import com.gamegoo.gamegoo_v2.account.member.domain.Tier;
 import com.gamegoo.gamegoo_v2.account.member.repository.MemberRepository;
+import com.gamegoo.gamegoo_v2.account.member.repository.MemberRecentStatsRepository;
 import com.gamegoo.gamegoo_v2.core.exception.MemberException;
 import com.gamegoo.gamegoo_v2.core.exception.common.ErrorCode;
 import com.gamegoo.gamegoo_v2.external.riot.dto.TierDetails;
@@ -25,6 +27,7 @@ import java.util.List;
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final MemberRecentStatsRepository memberRecentStatsRepository;
 
     @Transactional
     public Member createMemberRiot(RiotJoinRequest request, String gameName, String tag, List<TierDetails> tiers) {
@@ -64,6 +67,12 @@ public class MemberService {
         );
 
         memberRepository.save(member);
+
+        // MemberRecentStats 빈 껍데기 생성 (비동기 통계 갱신 전 EntityNotFoundException 방지)
+        MemberRecentStats recentStats = MemberRecentStats.builder().build();
+        member.setMemberRecentStats(recentStats);
+        memberRecentStatsRepository.save(recentStats);
+
         return member;
     }
 

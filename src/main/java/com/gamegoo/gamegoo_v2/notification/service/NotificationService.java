@@ -52,7 +52,10 @@ public class NotificationService {
                 sourceMember);
 
         // 새 알림 소켓 event 생성
-        eventPublisher.publishEvent(new SocketNewNotificationEvent(member.getId()));
+        eventPublisher.publishEvent(
+                new SocketNewNotificationEvent(member.getId(), notification.getId(),
+                        notification.getNotificationType().getImgType(), createContent(notification),
+                        createPageUrl(notification), notification.isRead()));
 
         return notification;
     }
@@ -74,7 +77,10 @@ public class NotificationService {
                 sourceMember);
 
         // 새 알림 소켓 event 생성
-        eventPublisher.publishEvent(new SocketNewNotificationEvent(member.getId()));
+        eventPublisher.publishEvent(
+                new SocketNewNotificationEvent(member.getId(), notification.getId(),
+                        notification.getNotificationType().getImgType(), createContent(notification),
+                        createPageUrl(notification), notification.isRead()));
 
         return notification;
     }
@@ -96,7 +102,10 @@ public class NotificationService {
                 sourceMember);
 
         // 새 알림 소켓 event 생성
-        eventPublisher.publishEvent(new SocketNewNotificationEvent(member.getId()));
+        eventPublisher.publishEvent(
+                new SocketNewNotificationEvent(member.getId(), notification.getId(),
+                        notification.getNotificationType().getImgType(), createContent(notification),
+                        createPageUrl(notification), notification.isRead()));
 
         return notification;
     }
@@ -118,7 +127,10 @@ public class NotificationService {
                 sourceMember);
 
         // 새 알림 소켓 event 생성
-        eventPublisher.publishEvent(new SocketNewNotificationEvent(member.getId()));
+        eventPublisher.publishEvent(
+                new SocketNewNotificationEvent(member.getId(), notification.getId(),
+                        notification.getNotificationType().getImgType(), createContent(notification),
+                        createPageUrl(notification), notification.isRead()));
 
         return notification;
     }
@@ -141,7 +153,10 @@ public class NotificationService {
         Notification notification = saveNotification(notificationType, notificationContent, member, null);
 
         // 새 알림 소켓 event 생성
-        eventPublisher.publishEvent(new SocketNewNotificationEvent(member.getId()));
+        eventPublisher.publishEvent(
+                new SocketNewNotificationEvent(member.getId(), notification.getId(),
+                        notification.getNotificationType().getImgType(), createContent(notification),
+                        createPageUrl(notification), notification.isRead()));
 
         return notification;
     }
@@ -173,7 +188,10 @@ public class NotificationService {
         Notification notification = saveNotification(notificationType, notificationContent, member, null);
 
         // 새 알림 소켓 event 생성
-        eventPublisher.publishEvent(new SocketNewNotificationEvent(member.getId()));
+        eventPublisher.publishEvent(
+                new SocketNewNotificationEvent(member.getId(), notification.getId(),
+                        notification.getNotificationType().getImgType(), createContent(notification),
+                        createPageUrl(notification), notification.isRead()));
 
         return notification;
     }
@@ -202,7 +220,10 @@ public class NotificationService {
         Notification notification = saveNotification(notificationType, notificationContent, reporter, null);
 
         // 새 알림 소켓 event 생성
-        eventPublisher.publishEvent(new SocketNewNotificationEvent(reporter.getId()));
+        eventPublisher.publishEvent(
+                new SocketNewNotificationEvent(reporter.getId(), notification.getId(),
+                        notification.getNotificationType().getImgType(), createContent(notification),
+                        createPageUrl(notification), notification.isRead()));
 
         return notification;
     }
@@ -231,7 +252,10 @@ public class NotificationService {
         Notification notification = saveNotification(notificationType, notificationContent, reported, null);
 
         // 새 알림 소켓 event 생성
-        eventPublisher.publishEvent(new SocketNewNotificationEvent(reported.getId()));
+        eventPublisher.publishEvent(
+                new SocketNewNotificationEvent(reported.getId(), notification.getId(),
+                        notification.getNotificationType().getImgType(), createContent(notification),
+                        createPageUrl(notification), notification.isRead()));
 
         return notification;
     }
@@ -302,6 +326,27 @@ public class NotificationService {
     }
 
     /**
+     * 여러 알림 읽음 처리 메소드
+     *
+     * @param member          회원
+     * @param notificationIds 읽음 처리할 알림 id 리스트
+     */
+    @Transactional
+    public void readMultipleNotifications(Member member, List<Long> notificationIds) {
+        // 각 notificationId에 해당하는 알림 존재 여부 검증
+        for (Long notificationId : notificationIds) {
+            validateNotificationExists(member, notificationId);
+        }
+
+        // 알림 일괄 읽음 처리
+        List<Notification> notifications = notificationRepository.findAllById(notificationIds);
+        for (Notification notification : notifications) {
+            notification.updateIsRead(true);
+        }
+        notificationRepository.saveAll(notifications);
+    }
+
+    /**
      * title로 NotificationType을 찾는 메소드
      *
      * @param title NotificationTypeTitle enum
@@ -344,6 +389,65 @@ public class NotificationService {
         boolean exists = notificationRepository.existsByMemberAndId(member, notificationId);
         if (!exists) {
             throw new NotificationException(ErrorCode.NOTIFICATION_NOT_FOUND);
+        }
+    }
+
+    /**
+     * 여러 알림 삭제 처리 메소드
+     *
+     * @param member          회원
+     * @param notificationIds 삭제할 알림 id 리스트
+     */
+    @Transactional
+    public void deleteMultipleNotifications(Member member, List<Long> notificationIds) {
+        // 각 notificationId에 해당하는 알림 존재 여부 검증
+        for (Long notificationId : notificationIds) {
+            validateNotificationExists(member, notificationId);
+        }
+
+        // 알림 일괄 삭제 처리
+        List<Notification> notifications = notificationRepository.findAllById(notificationIds);
+        notificationRepository.deleteAll(notifications);
+    }
+
+
+    private static String createPageUrl(Notification notification) {
+        String sourceUrl = notification.getNotificationType().getSourceUrl();
+
+        if (sourceUrl == null) {
+            return null;
+        }
+
+        // sourceUrl을 기반으로 URL 생성
+        StringBuilder urlBuilder = new StringBuilder(sourceUrl);
+
+        // sourceMember가 없는 경우
+        if (notification.getSourceMember() == null) {
+            return urlBuilder.toString();
+        }
+
+        // sourceMember가 탈퇴한 회원인 경우 URL 생성하지 않음
+        if (notification.getSourceMember().getBlind()) {
+            return null;
+        }
+
+        // 탈퇴하지 않은 sourceMember의 id 추가
+        return urlBuilder.append(notification.getSourceMember().getId()).toString();
+    }
+
+    private static String createContent(Notification notification) {
+        String content = notification.getContent();
+
+        // sourceMember가 없는 경우 content를 그대로 리턴
+        if (notification.getSourceMember() == null) {
+            return content;
+        }
+
+        // sourceMember 닉네임 표시
+        if (notification.getSourceMember().getBlind()) { // sourceMember가 탈퇴한 회원인 경우
+            return "(탈퇴한 사용자)" + content;
+        } else {
+            return notification.getSourceMember().getGameName() + content;
         }
     }
 

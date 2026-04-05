@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -22,13 +21,14 @@ public class AsyncChampionStatsService {
      * @param memberId 갱신할 회원 ID
      */
     @Async
-    @Transactional
     public void refreshChampionStatsAsync(Long memberId) {
         try {
             Member member = memberService.findMemberById(memberId);
             championStatsRefreshService.refreshChampionStats(member);
-        } catch (RuntimeException e) {
-            log.warn("비동기 챔피언 통계 갱신에 실패했습니다. memberId: {}", memberId, e);
+            log.info("챔피언 통계 갱신 성공 - memberId: {}", memberId);
+        } catch (Exception e) {
+            log.error("챔피언 통계 갱신 실패 - memberId: {}, error: {}",
+                memberId, e.getMessage(), e);
         }
     }
 }

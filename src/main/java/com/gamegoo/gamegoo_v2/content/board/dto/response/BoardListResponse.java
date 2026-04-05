@@ -64,6 +64,8 @@ public class BoardListResponse {
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     private int soloRank;
     private Boolean isBlocked;
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    private Boolean canRefresh;
 
     public static BoardListResponse of(Board board, Boolean isBlocked) {
         Member member = board.getMember();
@@ -118,6 +120,7 @@ public class BoardListResponse {
                 .soloTier(member.getSoloTier())
                 .soloRank(member.getSoloRank())
                 .isBlocked(isBlocked)
+                .canRefresh(member.canRefreshChampionStats())
                 .build();
     }
 

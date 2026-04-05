@@ -1,0 +1,103 @@
+package com.gamegoo.gamegoo_v2.rollbti.dto.response;
+
+import com.gamegoo.gamegoo_v2.account.member.domain.Mike;
+import com.gamegoo.gamegoo_v2.account.member.domain.Position;
+import com.gamegoo.gamegoo_v2.content.board.dto.response.ChampionStatsResponse;
+import com.gamegoo.gamegoo_v2.rollbti.domain.RollBtiType;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Builder;
+import lombok.Getter;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Getter
+@Builder
+public class RollBtiRecommendedMemberResponse {
+
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    private Long memberId;
+
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    private String gameName;
+
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    private String tag;
+
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    private Integer profileImage;
+
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    private Integer mannerLevel;
+
+    @Schema(ref = "#/components/schemas/Position", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Position mainP;
+
+    @Schema(ref = "#/components/schemas/Position", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Position subP;
+
+    @Schema(ref = "#/components/schemas/Mike", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Mike mike;
+
+    @Schema(ref = "#/components/schemas/RollBtiType")
+    private RollBtiType rollBtiType;
+
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    private Integer compatibilityScore;
+
+    private Boolean blocked;
+
+    private Boolean friendRequestReceived;
+
+    private Boolean friendRequestSent;
+
+    private Boolean friend;
+
+    private Boolean nonFriend;
+
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    private LocalDateTime updatedAt;
+
+    @ArraySchema(schema = @Schema(implementation = ChampionStatsResponse.class))
+    private List<ChampionStatsResponse> championStatsResponseList;
+
+    public static RollBtiRecommendedMemberResponse of(
+            Long memberId,
+            String gameName,
+            String tag,
+            Integer profileImage,
+            Integer mannerLevel,
+            Position mainP,
+            Position subP,
+            Mike mike,
+            RollBtiType rollBtiType,
+            Integer compatibilityScore,
+            Boolean blocked,
+            Boolean friendRequestReceived,
+            Boolean friendRequestSent,
+            Boolean friend,
+            Boolean nonFriend,
+            LocalDateTime updatedAt,
+            List<ChampionStatsResponse> championStatsResponseList) {
+        return RollBtiRecommendedMemberResponse.builder()
+                .memberId(memberId)
+                .gameName(gameName)
+                .tag(tag)
+                .profileImage(profileImage)
+                .mannerLevel(mannerLevel)
+                .mainP(mainP)
+                .subP(subP)
+                .mike(mike)
+                .rollBtiType(rollBtiType)
+                .compatibilityScore(compatibilityScore)
+                .blocked(blocked)
+                .friendRequestReceived(friendRequestReceived)
+                .friendRequestSent(friendRequestSent)
+                .friend(friend)
+                .nonFriend(nonFriend)
+                .updatedAt(updatedAt)
+                .championStatsResponseList(championStatsResponseList)
+                .build();
+    }
+}

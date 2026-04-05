@@ -27,4 +27,4 @@ RUN apt-get update && apt-get install -y tzdata \
 COPY --from=build /app/build/libs/*SNAPSHOT.jar /app/gamegoov2.jar
 
 # 3) 실행
-CMD ["java", "-Dspring.profiles.active=prod", "-jar", "gamegoov2.jar"]
+CMD ["java", "-Dspring.profiles.active=qa", "-jar", "gamegoov2.jar"]
