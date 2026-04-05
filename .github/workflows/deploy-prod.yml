@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - GM9-36
   workflow_dispatch:
 
 jobs:
